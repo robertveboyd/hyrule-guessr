@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: hyrule-guessr-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: hyrule_guessr
+    volumes:
+      - hyrule_guessr_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d hyrule_guessr"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  hyrule_guessr_pg:
