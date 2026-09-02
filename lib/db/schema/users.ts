@@ -7,14 +7,20 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
+export const UsersUnique = {
+  email: "users_email_unique",
+  username: "users_username_lower_idx",
+} as const;
+
 export const users = pgTable(
   "users",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    email: text("email").notNull().unique(),
+    email: text("email").notNull().unique(UsersUnique.email),
     password: text("password").notNull(),
     username: text("username").notNull(),
     avatarId: text("avatar_id").notNull().default("default"),
+    sessionId: uuid("session_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -24,6 +30,6 @@ export const users = pgTable(
       .$onUpdate(() => new Date()),
   },
   (t) => [
-    uniqueIndex("users_username_lower_idx").on(sql`lower(${t.username})`),
+    uniqueIndex(UsersUnique.username).on(sql`lower(${t.username})`),
   ],
 );
