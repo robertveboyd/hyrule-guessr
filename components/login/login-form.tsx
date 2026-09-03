@@ -23,6 +23,7 @@ import {
   type SignInState,
 } from "@/lib/auth/actions/sign-in";
 import { type SignInValues } from "@/lib/auth/schema";
+import { postSessionReplaced } from "@/lib/auth/session-channel";
 import { writeSessionId } from "@/lib/auth/session-storage";
 import { updateField } from "@/lib/forms/update-field";
 
@@ -44,6 +45,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
     if (!state.sessionId) return;
 
     writeSessionId(state.sessionId);
+    postSessionReplaced(state.sessionId);
     window.location.assign(state.redirectTo ?? "/");
   }, [state.sessionId, state.redirectTo]);
 

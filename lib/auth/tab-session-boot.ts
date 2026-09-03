@@ -1,3 +1,4 @@
+import { SESSION_LOCK_PREFIX } from "@/lib/auth/session-lock";
 import { SESSION_STORAGE_KEY } from "@/lib/auth/session-storage";
 
 /** Sync SHA-256 (ASCII) for the boot script. Must match Node `createHash("sha256")`.
@@ -10,12 +11,23 @@ export function tabSessionBootScript(expectedHash: string | null): string {
   const expected = expectedHash && HASH_RE.test(expectedHash) ? expectedHash : "";
 
   return `(function(){try{${SHA256_SRC}
+document.documentElement.style.removeProperty("visibility");
 var expected=${JSON.stringify(expected)};
-var raw=sessionStorage.getItem(${JSON.stringify(SESSION_STORAGE_KEY)});
+var key=${JSON.stringify(SESSION_STORAGE_KEY)};
+var raw=sessionStorage.getItem(key);
 var p=location.pathname;
 var login=p==="/login"||p.indexOf("/login/")===0;
 var match=!!(raw&&expected&&sha256(raw)===expected);
 if(!match&&!login)location.replace("/login");
 else if(match&&login)location.replace("/");
+else if(match&&!login&&navigator.locks){
+var s=document.createElement("style");
+s.textContent="body{visibility:hidden!important}";
+document.head.appendChild(s);
+navigator.locks.request(${JSON.stringify(SESSION_LOCK_PREFIX)}+raw,{mode:"exclusive",ifAvailable:true},function(lock){
+if(!lock){sessionStorage.removeItem(key);location.replace("/login");return;}
+s.remove();
+});
+}
 }catch(e){}})();`;
 }

@@ -29,6 +29,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       className={`dark ${ibmPlexSans.variable} ${hyliaSerif.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <head>
         <script
