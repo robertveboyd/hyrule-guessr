@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +23,7 @@ import {
   type SignInState,
 } from "@/lib/auth/actions/sign-in";
 import { type SignInValues } from "@/lib/auth/schema";
+import { writeSessionId } from "@/lib/auth/session-storage";
 import { updateField } from "@/lib/forms/update-field";
 
 const initialState: SignInState = { message: null };
@@ -36,6 +37,15 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
     email: "",
     password: "",
   });
+
+  const signingIn = pending || Boolean(state.sessionId);
+
+  useEffect(() => {
+    if (!state.sessionId) return;
+
+    writeSessionId(state.sessionId);
+    window.location.assign(state.redirectTo ?? "/");
+  }, [state.sessionId, state.redirectTo]);
 
   return (
     <form action={formAction} noValidate className="w-full max-w-sm">
@@ -57,6 +67,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
                 type="email"
                 autoComplete="email"
                 autoFocus
+                disabled={signingIn}
                 value={fields.email}
                 onChange={updateField(setFields, "email")}
                 aria-invalid={!!state.errors?.email || undefined}
@@ -70,6 +81,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
                 name="password"
                 type="password"
                 autoComplete="current-password"
+                disabled={signingIn}
                 value={fields.password}
                 onChange={updateField(setFields, "password")}
                 aria-invalid={!!state.errors?.password || undefined}
@@ -80,8 +92,13 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
           </FieldGroup>
         </CardContent>
         <CardFooter>
-          <Button type="submit" className="w-full" size="lg" disabled={pending}>
-            {pending ? "Signing in…" : "Sign in"}
+          <Button
+            type="submit"
+            className="w-full"
+            size="lg"
+            disabled={signingIn}
+          >
+            {signingIn ? "Signing in…" : "Sign in"}
           </Button>
         </CardFooter>
       </Card>

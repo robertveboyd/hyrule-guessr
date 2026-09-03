@@ -11,15 +11,12 @@ export const authConfig = {
   providers: [],
   callbacks: {
     authorized({ auth, request }) {
+      if (request.headers.has("next-action")) return true;
+
       const isLoggedIn = typeof auth?.user?.id === "string";
       const isLogin = request.nextUrl.pathname === "/login";
 
-      if (isLogin) {
-        if (isLoggedIn) {
-          return Response.redirect(new URL("/", request.nextUrl));
-        }
-        return true;
-      }
+      if (isLogin) return true;
 
       if (isLoggedIn) return true;
       return Response.redirect(new URL("/login", request.nextUrl));
@@ -33,6 +30,9 @@ export const authConfig = {
         session.user.id = token.id;
         session.user.username = token.username;
         session.user.avatarId = token.avatarId;
+      }
+      if (typeof token.sessionIdHash === "string") {
+        session.sessionIdHash = token.sessionIdHash;
       }
       return session;
     },

@@ -14,6 +14,7 @@ declare module "next-auth" {
       username: string;
       avatarId: string;
     };
+    sessionIdHash?: string;
   }
 }
 
@@ -22,5 +23,6 @@ declare module "next-auth/jwt" {
     id?: string;
     username?: string;
     avatarId?: string;
+    sessionIdHash?: string;
   }
 }

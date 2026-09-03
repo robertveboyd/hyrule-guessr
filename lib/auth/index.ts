@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
+import { hashSessionId } from "@/lib/auth/hash-session-id";
 import { verifyPassword } from "@/lib/auth/password";
 import { authConfig } from "@/lib/auth/config";
 
@@ -43,6 +44,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.id = user.id;
         token.username = user.username;
         token.avatarId = user.avatarId;
+        delete token.sessionIdHash;
         return token;
       }
 
@@ -50,11 +52,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       const row = await db.query.users.findFirst({
         where: eq(users.id, token.id),
+        columns: { username: true, avatarId: true, sessionId: true },
       });
       if (!row) return null;
 
       token.username = row.username;
       token.avatarId = row.avatarId;
+      if (typeof row.sessionId === "string") {
+        token.sessionIdHash = hashSessionId(row.sessionId);
+      } else {
+        delete token.sessionIdHash;
+      }
       return token;
     },
   },

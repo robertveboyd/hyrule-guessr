@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { ExclusiveSessionGate } from "@/components/auth/exclusive-session-gate";
 import { auth } from "@/lib/auth";
 
-export default async function AppLayout({
+export default async function AuthenticatedLayout({
   children,
 }: {
   children: ReactNode;
@@ -13,5 +14,5 @@ export default async function AppLayout({
     redirect("/login");
   }
 
-  return children;
+  return <ExclusiveSessionGate>{children}</ExclusiveSessionGate>;
 }
