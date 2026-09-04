@@ -4,19 +4,13 @@ import { useEffect, type ReactNode } from "react";
 
 import { connectUserSessionParty } from "@/lib/auth/connect-user-session";
 import { fetchExclusiveSessionActive } from "@/lib/auth/fetch-exclusive-session";
+import { sendToLogin } from "@/lib/auth/send-to-login";
 import {
   SessionChannelType,
   subscribeSessionChannel,
 } from "@/lib/auth/session-channel";
 import { requestExclusiveSessionLock } from "@/lib/auth/session-lock";
-import { clearSessionId, readSessionId } from "@/lib/auth/session-storage";
-
-const LOGIN_PATH = "/login";
-
-function sendToLogin() {
-  clearSessionId();
-  window.location.replace(LOGIN_PATH);
-}
+import { readSessionId } from "@/lib/auth/session-storage";
 
 export function ExclusiveSessionGate({
   userId,
@@ -37,28 +31,33 @@ export function ExclusiveSessionGate({
     };
 
     void (async () => {
-      const sessionId = readSessionId();
-      if (sessionId) {
-        const held = await requestExclusiveSessionLock(sessionId, abort.signal);
+      try {
+        const sessionId = readSessionId();
+        if (sessionId) {
+          const held = await requestExclusiveSessionLock(sessionId, abort.signal);
+          if (abort.signal.aborted) return;
+          if (!held) {
+            onKicked();
+            return;
+          }
+        }
+
+        const active = await fetchExclusiveSessionActive();
         if (abort.signal.aborted) return;
-        if (!held) {
+        if (!active) {
           onKicked();
           return;
         }
-      }
 
-      const active = await fetchExclusiveSessionActive();
-      if (abort.signal.aborted) return;
-      if (!active) {
+        unsubscribeParty = await connectUserSessionParty({
+          userId,
+          onKicked,
+        });
+        if (abort.signal.aborted) unsubscribeParty();
+      } catch {
+        if (abort.signal.aborted) return;
         onKicked();
-        return;
       }
-
-      unsubscribeParty = await connectUserSessionParty({
-        userId,
-        onKicked,
-      });
-      if (abort.signal.aborted) unsubscribeParty();
     })();
 
     const unsubscribeChannel = subscribeSessionChannel((message) => {

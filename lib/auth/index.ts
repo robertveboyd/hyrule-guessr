@@ -7,9 +7,11 @@ import { users } from "@/lib/db/schema";
 import { hashSessionId } from "@/lib/auth/hash-session-id";
 import { verifyPassword } from "@/lib/auth/password";
 import { authConfig } from "@/lib/auth/config";
+import { config } from "@/lib/config";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
+  secret: config.authSecret,
   providers: [
     Credentials({
       credentials: {
@@ -24,10 +26,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const user = await db.query.users.findFirst({
           where: eq(users.email, email),
         });
-        if (!user) return null;
-
-        const valid = await verifyPassword(password, user.password);
-        if (!valid) return null;
+        const valid = await verifyPassword(password, user?.password ?? null);
+        if (!user || !valid) return null;
 
         return {
           id: user.id,
@@ -50,20 +50,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       if (typeof token.id !== "string") return null;
 
-      const row = await db.query.users.findFirst({
-        where: eq(users.id, token.id),
-        columns: { username: true, avatarId: true, sessionId: true },
-      });
-      if (!row) return null;
+      try {
+        const row = await db.query.users.findFirst({
+          where: eq(users.id, token.id),
+          columns: { username: true, avatarId: true, sessionId: true },
+        });
+        if (!row) return null;
 
-      token.username = row.username;
-      token.avatarId = row.avatarId;
-      if (typeof row.sessionId === "string") {
-        token.sessionIdHash = hashSessionId(row.sessionId);
-      } else {
-        delete token.sessionIdHash;
+        token.username = row.username;
+        token.avatarId = row.avatarId;
+        if (typeof row.sessionId === "string") {
+          token.sessionIdHash = hashSessionId(row.sessionId);
+        } else {
+          delete token.sessionIdHash;
+        }
+        return token;
+      } catch (error) {
+        console.error("jwt user lookup failed:", error);
+        return token;
       }
-      return token;
     },
   },
 });

@@ -1,8 +1,13 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { ExclusiveSessionGate } from "@/components/auth/exclusive-session-gate";
 import { auth } from "@/lib/auth";
+import {
+  CALLBACK_PATH_HEADER,
+  loginPathWithCallback,
+} from "@/lib/auth/login-url";
 
 export default async function AuthenticatedLayout({
   children,
@@ -11,7 +16,9 @@ export default async function AuthenticatedLayout({
 }) {
   const session = await auth();
   if (typeof session?.user?.id !== "string") {
-    redirect("/login");
+    redirect(
+      loginPathWithCallback((await headers()).get(CALLBACK_PATH_HEADER)),
+    );
   }
 
   return (

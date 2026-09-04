@@ -1,5 +1,7 @@
 import type { NextAuthConfig } from "next-auth";
 
+import { loginPathWithCallback } from "@/lib/auth/login-url";
+
 export const authConfig = {
   session: {
     strategy: "jwt",
@@ -11,15 +13,21 @@ export const authConfig = {
   providers: [],
   callbacks: {
     authorized({ auth, request }) {
-      if (request.headers.has("next-action")) return true;
-
       const isLoggedIn = typeof auth?.user?.id === "string";
       const isLogin = request.nextUrl.pathname === "/login";
 
       if (isLogin) return true;
 
       if (isLoggedIn) return true;
-      return Response.redirect(new URL("/login", request.nextUrl));
+
+      return Response.redirect(
+        new URL(
+          loginPathWithCallback(
+            `${request.nextUrl.pathname}${request.nextUrl.search}`,
+          ),
+          request.nextUrl,
+        ),
+      );
     },
     async session({ session, token }) {
       if (

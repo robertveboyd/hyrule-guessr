@@ -10,7 +10,7 @@ export async function notifySessionRoom(userId: string, sessionId: string) {
   if (!sessionRoomUrl || !sessionRoomSecret) return;
 
   try {
-    await fetch(
+    const response = await fetch(
       `${sessionRoomUrl}/parties/${USER_SESSION_PARTY}/${encodeURIComponent(userId)}`,
       {
         method: "POST",
@@ -22,7 +22,12 @@ export async function notifySessionRoom(userId: string, sessionId: string) {
         signal: AbortSignal.timeout(NOTIFY_TIMEOUT_MS),
       },
     );
-  } catch {
-    // Login must succeed if the party is down.
+    if (!response.ok) {
+      console.error(
+        `UserSession kick failed for ${userId}: HTTP ${response.status}`,
+      );
+    }
+  } catch (error) {
+    console.error(`UserSession kick request failed for ${userId}:`, error);
   }
 }

@@ -35,30 +35,47 @@ export async function connectUserSessionParty({
   const host = process.env.NEXT_PUBLIC_PARTYKIT_HOST;
   if (!host) return () => {};
 
-  const token = await mintJoinTokenAction(readSessionId());
-  if (!token) return () => {};
+  const minted = await mintJoinTokenAction(readSessionId());
+  if (!minted.ok) {
+    if (minted.reason === "forbidden") onKicked();
+    return () => {};
+  }
 
   let kicked = false;
+  let socket: PartySocket | undefined;
 
-  const socket = new PartySocket({
+  const kick = () => {
+    if (kicked) return;
+    kicked = true;
+    socket?.close();
+    onKicked();
+  };
+
+  const confirmReplacedKick = async () => {
+    try {
+      const result = await mintJoinTokenAction(readSessionId());
+      if (!result.ok && result.reason === "forbidden") kick();
+    } catch {
+      // Stay; Postgres is the lock. A failed probe must not evict the winner.
+    }
+  };
+
+  socket = new PartySocket({
     host,
     party: USER_SESSION_PARTY,
     room: userId,
     query: async () => {
-      const nextToken = await mintJoinTokenAction(readSessionId());
-      return { token: nextToken };
+      const next = await mintJoinTokenAction(readSessionId());
+      if (!next.ok) {
+        if (next.reason === "forbidden") kick();
+        return {};
+      }
+      return { token: next.token };
     },
     shouldReconnectOnClose: (event) =>
       event.code !== USER_SESSION_CLOSE_REPLACED &&
       event.code !== USER_SESSION_CLOSE_UNAUTHORIZED,
   });
-
-  const kick = () => {
-    if (kicked) return;
-    kicked = true;
-    socket.close();
-    onKicked();
-  };
 
   const onMessage = (event: MessageEvent<string>) => {
     const sessionId = readReplacedSessionId(event.data);
@@ -68,15 +85,17 @@ export async function connectUserSessionParty({
   };
 
   const onClose = (event: CloseEvent) => {
-    if (event.code === USER_SESSION_CLOSE_REPLACED) kick();
+    if (event.code === USER_SESSION_CLOSE_REPLACED) {
+      void confirmReplacedKick();
+    }
   };
 
   socket.addEventListener("message", onMessage);
   socket.addEventListener("close", onClose);
 
   return () => {
-    socket.removeEventListener("message", onMessage);
-    socket.removeEventListener("close", onClose);
-    socket.close();
+    socket?.removeEventListener("message", onMessage);
+    socket?.removeEventListener("close", onClose);
+    socket?.close();
   };
 }
