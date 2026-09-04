@@ -5,11 +5,19 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { signIn } from "@/lib/auth";
+import {
+  clearLoginFailures,
+  getLoginClientIp,
+  isLoginRateLimited,
+  recordLoginFailure,
+} from "@/lib/auth/rate-limit";
 import { rotateSessionId } from "@/lib/auth/rotate-session-id";
 import { safeCallbackUrl } from "@/lib/auth/safe-callback-url";
 import { signInSchema } from "@/lib/auth/schema";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
+
+const INVALID_CREDENTIALS = "Invalid email or password.";
 
 function signInReturnedError(result: unknown): boolean {
   if (result && typeof result === "object" && "error" in result && result.error) {
@@ -49,6 +57,11 @@ export async function authenticate(
     };
   }
 
+  const ip = await getLoginClientIp();
+  if (isLoginRateLimited(parsed.data.email, ip)) {
+    return { message: INVALID_CREDENTIALS };
+  }
+
   try {
     const result = await signIn("credentials", {
       email: parsed.data.email,
@@ -57,11 +70,13 @@ export async function authenticate(
     });
 
     if (signInReturnedError(result)) {
-      return { message: "Invalid email or password." };
+      recordLoginFailure(parsed.data.email, ip);
+      return { message: INVALID_CREDENTIALS };
     }
   } catch (error) {
     if (error instanceof CredentialsSignin) {
-      return { message: "Invalid email or password." };
+      recordLoginFailure(parsed.data.email, ip);
+      return { message: INVALID_CREDENTIALS };
     }
     if (error instanceof AuthError) {
       return { message: "Something went wrong. Please try again." };
@@ -77,6 +92,7 @@ export async function authenticate(
     return { message: "Something went wrong. Please try again." };
   }
 
+  clearLoginFailures(parsed.data.email, ip);
   const sessionId = await rotateSessionId(user.id);
 
   return {
