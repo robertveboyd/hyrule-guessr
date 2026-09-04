@@ -2,6 +2,10 @@ import "server-only";
 
 import { z } from "zod";
 
+function emptyToUndefined(value: unknown) {
+  return value === "" ? undefined : value;
+}
+
 const envSchema = z.object({
   NODE_ENV: z
     .enum(["development", "production", "test"])
@@ -16,6 +20,11 @@ const envSchema = z.object({
     .string({ error: "AUTH_SECRET is not set" })
     .min(1, { error: "AUTH_SECRET is not set" }),
   AUTH_URL: z.url({ error: "AUTH_URL must be a valid URL" }),
+  SESSION_ROOM_URL: z.preprocess(emptyToUndefined, z.url().optional()),
+  SESSION_ROOM_SECRET: z.preprocess(
+    emptyToUndefined,
+    z.string().min(1).optional(),
+  ),
 });
 
 const env = envSchema.parse(process.env);
@@ -23,10 +32,10 @@ const env = envSchema.parse(process.env);
 const isProd = env.NODE_ENV === "production";
 
 export const config = {
-    databaseUrl: env.DATABASE_URL,
-    authSecret: env.AUTH_SECRET,
-    authUrl: env.AUTH_URL,
-    isProd,
-  };
-  
-
+  databaseUrl: env.DATABASE_URL,
+  authSecret: env.AUTH_SECRET,
+  authUrl: env.AUTH_URL,
+  sessionRoomUrl: env.SESSION_ROOM_URL,
+  sessionRoomSecret: env.SESSION_ROOM_SECRET,
+  isProd,
+};

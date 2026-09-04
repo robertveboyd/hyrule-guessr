@@ -14,5 +14,9 @@ export default async function AuthenticatedLayout({
     redirect("/login");
   }
 
-  return <ExclusiveSessionGate>{children}</ExclusiveSessionGate>;
+  return (
+    <ExclusiveSessionGate userId={session.user.id}>
+      {children}
+    </ExclusiveSessionGate>
+  );
 }

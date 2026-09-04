@@ -33,6 +33,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     >
       <head>
         <script
+          suppressHydrationWarning
           dangerouslySetInnerHTML={{
             __html: tabSessionBootScript(sessionIdHash),
           }}

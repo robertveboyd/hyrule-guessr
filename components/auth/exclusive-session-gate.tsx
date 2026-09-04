@@ -2,6 +2,7 @@
 
 import { useEffect, type ReactNode } from "react";
 
+import { connectUserSessionParty } from "@/lib/auth/connect-user-session";
 import { fetchExclusiveSessionActive } from "@/lib/auth/fetch-exclusive-session";
 import {
   SessionChannelType,
@@ -17,9 +18,23 @@ function sendToLogin() {
   window.location.replace(LOGIN_PATH);
 }
 
-export function ExclusiveSessionGate({ children }: { children: ReactNode }) {
+export function ExclusiveSessionGate({
+  userId,
+  children,
+}: {
+  userId: string;
+  children: ReactNode;
+}) {
   useEffect(() => {
     const abort = new AbortController();
+    let kicked = false;
+    let unsubscribeParty = () => {};
+
+    const onKicked = () => {
+      if (kicked) return;
+      kicked = true;
+      sendToLogin();
+    };
 
     void (async () => {
       const sessionId = readSessionId();
@@ -27,32 +42,42 @@ export function ExclusiveSessionGate({ children }: { children: ReactNode }) {
         const held = await requestExclusiveSessionLock(sessionId, abort.signal);
         if (abort.signal.aborted) return;
         if (!held) {
-          sendToLogin();
+          onKicked();
           return;
         }
       }
 
       const active = await fetchExclusiveSessionActive();
       if (abort.signal.aborted) return;
-      if (!active) sendToLogin();
+      if (!active) {
+        onKicked();
+        return;
+      }
+
+      unsubscribeParty = await connectUserSessionParty({
+        userId,
+        onKicked,
+      });
+      if (abort.signal.aborted) unsubscribeParty();
     })();
 
-    const unsubscribe = subscribeSessionChannel((message) => {
+    const unsubscribeChannel = subscribeSessionChannel((message) => {
       if (message.type === SessionChannelType.signedOut) {
-        sendToLogin();
+        onKicked();
         return;
       }
 
       if (readSessionId() === message.sessionId) return;
 
-      sendToLogin();
+      onKicked();
     });
 
     return () => {
       abort.abort();
-      unsubscribe();
+      unsubscribeChannel();
+      unsubscribeParty();
     };
-  }, []);
+  }, [userId]);
 
   return children;
 }

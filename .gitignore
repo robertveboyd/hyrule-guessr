@@ -33,6 +33,11 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
+.dev.vars
+
+# wrangler local emulator state
+.wrangler
+
 
 # local planning docs (not shipped, not on GitHub)
 /internal-docs/

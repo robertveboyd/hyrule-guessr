@@ -1,0 +1,23 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "hyrule-guessr-session",
+  "main": "party/user-session.ts",
+  "compatibility_date": "2026-03-15",
+  "vars": {
+    "ALLOWED_ORIGIN": "http://localhost:3000"
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "UserSession",
+        "class_name": "UserSession"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["UserSession"]
+    }
+  ]
+}
