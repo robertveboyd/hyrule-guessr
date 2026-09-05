@@ -33,7 +33,7 @@ Mirror BotW map tiles once (gitignored `public/maptex/`; Nintendo art, sourced f
 pnpm map:mirror-tiles
 ```
 
-Logged-in **Map** on home opens dev-only `/map` (`NEXT_PUBLIC_MAP_TILES_URL=/maptex/{z}/{x}/{y}.png`). Production should point that env at Vercel Blob, not commit the pyramid.
+Logged-in **Map** on home opens `/map`. Local tiles: `NEXT_PUBLIC_MAP_TILES_URL=/maptex/{z}/{x}/{y}.png`. Production points that env at Vercel Blob (`pnpm map:upload-tiles`); do not commit the pyramid.
 
 ```bash
 pnpm test
