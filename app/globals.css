@@ -113,3 +113,24 @@
     @apply min-h-full bg-background text-foreground;
   }
 }
+
+.leaflet-container {
+  background: #000;
+  font: inherit;
+}
+
+.leaflet-marker-icon.botw-map-pin {
+  background: transparent;
+  border: none;
+  transform-origin: 50% 50%;
+}
+
+.botw-map-pin-dot {
+  display: block;
+  width: 12px;
+  height: 12px;
+  box-sizing: border-box;
+  background: #e0a01a;
+  border: 2px solid #1a1208;
+  border-radius: 50%;
+}

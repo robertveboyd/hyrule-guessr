@@ -27,6 +27,14 @@ pnpm dev
 
 `pnpm party:dev` binds `127.0.0.1:8787`. wrangler/workerd needs **macOS 13.5+**.
 
+Mirror BotW map tiles once (gitignored `public/maptex/`; Nintendo art, sourced from [objmap](https://objmap.zeldamods.org/)):
+
+```bash
+pnpm map:mirror-tiles
+```
+
+Logged-in **Map** on home opens dev-only `/map` (`NEXT_PUBLIC_MAP_TILES_URL=/maptex/{z}/{x}/{y}.png`). Production should point that env at Vercel Blob, not commit the pyramid.
+
 ```bash
 pnpm test
 pnpm lint

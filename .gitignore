@@ -42,6 +42,9 @@ yarn-error.log*
 # local planning docs (not shipped, not on GitHub)
 /internal-docs/
 
+# BotW maptex pyramid (Nintendo art; local/dev only, not committed)
+/public/maptex/
+
 # vercel
 .vercel
 
