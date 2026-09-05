@@ -45,6 +45,11 @@ yarn-error.log*
 # BotW maptex pyramid (Nintendo art; local/dev only, not committed)
 /public/maptex/
 
+# Operator stills (Nintendo screenshots; not committed)
+/catalog/
+/public/catalog/
+/scripts/add-stills/stills.json
+
 # vercel
 .vercel
 

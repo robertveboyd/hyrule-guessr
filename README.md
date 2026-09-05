@@ -35,6 +35,17 @@ pnpm map:mirror-tiles
 
 Logged-in **Map** on home opens `/map`. Local tiles: `NEXT_PUBLIC_MAP_TILES_URL=/maptex/{z}/{x}/{y}.png`. Production points that env at Vercel Blob (`pnpm map:upload-tiles`); do not commit the pyramid.
 
+Operator stills (gitignored `public/catalog/`; do not commit):
+
+```bash
+pnpm catalog:add -- --dev --file public/catalog/00001.jpg --x -1023 --z 1796
+pnpm catalog:add-stills -- --dev --from scripts/add-stills/stills.json
+pnpm catalog:add-stills -- --from scripts/add-stills/stills.json \
+  --database-url 'postgresql://…' --token 'vercel_blob_rw_…'
+```
+
+`--dev` inserts `/catalog/…` into local Docker. Without `--dev`, files are uploaded to Blob and inserted into the given database. The JPEG bytes are hashed (SHA-256); a re-run of the same files skips the upload and insert. If only `x`/`z` changed, the existing row is updated. `stills.json` is gitignored (coordinates); see `stills.example.json` for the shape.
+
 ```bash
 pnpm test
 pnpm lint

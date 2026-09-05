@@ -15,6 +15,20 @@
       "when": 1788345518469,
       "tag": "0001_brief_butterfly",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788629202028,
+      "tag": "0002_nappy_triathlon",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788647816324,
+      "tag": "0003_daily_ultron",
+      "breakpoints": true
     }
   ]
 }
