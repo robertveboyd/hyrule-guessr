@@ -4,6 +4,7 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 
+import { SignOutButton } from "@/components/auth/sign-out-button";
 import { Button } from "@/components/ui/button";
 import type { GamePoint } from "@/lib/game/crs";
 
@@ -27,9 +28,12 @@ export function MapPreview() {
             ? `x ${formatCoord(point.x)}, z ${formatCoord(point.z)}`
             : "Click the map for BotW (x, z)"}
         </p>
-        <Button asChild variant="outline" size="sm">
-          <Link href="/">Home</Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link href="/">Home</Link>
+          </Button>
+          <SignOutButton size="sm" />
+        </div>
       </header>
       <div className="relative min-h-0 flex-1">
         <BotwLeaflet

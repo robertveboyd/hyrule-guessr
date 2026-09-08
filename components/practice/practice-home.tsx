@@ -4,12 +4,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { SignOutButton } from "@/components/auth/sign-out-button";
+import { LobbyActions, LobbyShell, lobbyCtaClassName } from "@/components/lobby/lobby-shell";
+import { PracticeSplitButton } from "@/components/practice/practice-split-button";
 import { Button } from "@/components/ui/button";
 import { sendToLogin } from "@/lib/auth/send-to-login";
 import { readSessionId } from "@/lib/auth/session-storage";
+import type { SpRunMode } from "@/lib/game/practice";
 import {
-  abandonPracticeAction,
   loadPracticeHomeAction,
   startPracticeAction,
 } from "@/lib/practice/actions";
@@ -18,16 +19,6 @@ import {
   practiceErrorMessage,
 } from "@/lib/practice/error-copy";
 import type { PracticeHomeDto } from "@/lib/practice/types";
-import type { SpRunMode } from "@/lib/game/practice";
-
-function DevMapButton() {
-  if (process.env.NODE_ENV !== "development") return null;
-  return (
-    <Button asChild variant="outline">
-      <Link href="/map">Map</Link>
-    </Button>
-  );
-}
 
 export function PracticeHome() {
   const router = useRouter();
@@ -112,96 +103,67 @@ export function PracticeHome() {
     }
   }
 
-  async function abandon() {
-    if (pendingRef.current) return;
-    pendingRef.current = true;
-    setPending(true);
-    setMessage(null);
-    try {
-      const result = await abandonPracticeAction(readSessionId());
-      if (!result.ok) {
-        if (result.code === "forbidden") {
-          sendToLogin();
-          return;
-        }
-        setMessage(practiceErrorMessage(result.code));
-        return;
-      }
-      setHome({ active: null });
-    } catch {
-      setMessage(PRACTICE_UNEXPECTED_MESSAGE);
-    } finally {
-      pendingRef.current = false;
-      setPending(false);
-    }
-  }
-
   const active = home?.active;
 
   if (!home) {
     return (
-      <div className="flex min-h-full flex-1 flex-col items-center justify-center gap-6 px-4">
-        <h1 className="font-heading text-3xl">Hyrule Guessr</h1>
+      <LobbyShell>
         {message ? (
           <>
             <p className="max-w-sm text-center text-sm text-danger">{message}</p>
-            <Button type="button" onClick={() => void requestHome()}>
-              Retry
-            </Button>
+            <LobbyActions showMap>
+              <Button
+                type="button"
+                className={lobbyCtaClassName}
+                onClick={() => void requestHome()}
+              >
+                Retry
+              </Button>
+            </LobbyActions>
           </>
         ) : (
-          <p className="text-sm text-muted-foreground">Loading…</p>
+          <>
+            <p className="text-sm text-muted-foreground">Loading…</p>
+            <LobbyActions showMap />
+          </>
         )}
-        <DevMapButton />
-        <SignOutButton />
-      </div>
+      </LobbyShell>
+    );
+  }
+
+  if (active) {
+    const modeLabel = active.mode === "timed" ? "Timed" : "Casual";
+    const status =
+      active.phase === "summary"
+        ? `${modeLabel} run — summary`
+        : `${modeLabel} run in progress — round ${active.roundIndex}`;
+
+    return (
+      <LobbyShell>
+        {message ? (
+          <p className="max-w-sm text-center text-sm text-danger">{message}</p>
+        ) : null}
+        <p className="text-sm text-muted-foreground">{status}</p>
+        <LobbyActions showMap>
+          <Button asChild className={lobbyCtaClassName}>
+            <Link href="/play">Continue</Link>
+          </Button>
+        </LobbyActions>
+      </LobbyShell>
     );
   }
 
   return (
-    <div className="flex min-h-full flex-1 flex-col items-center justify-center gap-6 px-4">
-      <h1 className="font-heading text-3xl">Hyrule Guessr</h1>
+    <LobbyShell>
       {message ? (
         <p className="max-w-sm text-center text-sm text-danger">{message}</p>
       ) : null}
-      {active ? (
-        <p className="text-sm text-muted-foreground">
-          {active.mode === "timed" ? "Timed" : "Casual"} run in progress — round{" "}
-          {active.roundIndex}
-          {active.phase === "summary" ? " (summary)" : ""}.
-        </p>
-      ) : null}
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        {active ? (
-          <Button disabled={pending} onClick={() => router.push("/play")}>
-            Resume
-          </Button>
-        ) : null}
-        <Button
-          disabled={pending}
-          onClick={() => void start("casual")}
-        >
-          Casual
+      <LobbyActions showMap>
+        <PracticeSplitButton pending={pending} onStart={start} />
+        <Button className={lobbyCtaClassName} disabled>
+          Versus
         </Button>
-        <Button
-          disabled={pending}
-          variant="secondary"
-          onClick={() => void start("timed")}
-        >
-          Timed
-        </Button>
-        {active ? (
-          <Button
-            disabled={pending}
-            variant="destructive"
-            onClick={() => void abandon()}
-          >
-            Abandon
-          </Button>
-        ) : null}
-        <DevMapButton />
-      </div>
-      <SignOutButton />
-    </div>
+      </LobbyActions>
+    </LobbyShell>
   );
 }

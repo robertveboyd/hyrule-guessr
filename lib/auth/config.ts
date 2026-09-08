@@ -1,6 +1,7 @@
 import type { NextAuthConfig } from "next-auth";
 
 import { loginPathWithCallback } from "@/lib/auth/login-url";
+import { isCatalogMapEnabled } from "@/lib/map/access";
 
 export const authConfig = {
   session: {
@@ -13,10 +14,7 @@ export const authConfig = {
   providers: [],
   callbacks: {
     authorized({ auth, request }) {
-      if (
-        process.env.NODE_ENV !== "development" &&
-        request.nextUrl.pathname === "/map"
-      ) {
+      if (!isCatalogMapEnabled() && request.nextUrl.pathname === "/map") {
         return new Response(null, { status: 404 });
       }
 

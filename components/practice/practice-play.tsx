@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 
+import { SignOutButton } from "@/components/auth/sign-out-button";
 import { StillFrame } from "@/components/practice/still-frame";
 import { LeaveMenu } from "@/components/practice/leave-menu";
 import { RoundTimer } from "@/components/practice/round-timer";
@@ -326,6 +327,7 @@ export function PracticePlay() {
             </Button>
           </div>
         ) : null}
+        <SignOutButton />
       </div>
     );
   }
@@ -375,6 +377,7 @@ export function PracticePlay() {
             Done
           </Button>
         </div>
+        <SignOutButton className="mt-6" disabled={pending} />
       </div>
     );
   }

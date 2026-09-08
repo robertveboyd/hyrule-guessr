@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Menu } from "lucide-react";
 
+import { SignOutMenuItem } from "@/components/auth/sign-out-button";
 import { Button } from "@/components/ui/button";
 
 export function LeaveMenu({
@@ -57,7 +58,7 @@ export function LeaveMenu({
           <button
             type="button"
             role="menuitem"
-            className="block w-full px-3 py-2 text-left text-sm hover:bg-muted"
+            className="block w-full cursor-pointer px-3 py-2 text-left text-sm hover:bg-muted"
             disabled={pending}
             onClick={() => {
               setOpen(false);
@@ -69,7 +70,7 @@ export function LeaveMenu({
           <button
             type="button"
             role="menuitem"
-            className="block w-full px-3 py-2 text-left text-sm text-danger hover:bg-muted"
+            className="block w-full cursor-pointer px-3 py-2 text-left text-sm text-danger hover:bg-muted"
             disabled={pending}
             onClick={() => {
               setOpen(false);
@@ -78,6 +79,7 @@ export function LeaveMenu({
           >
             Abandon
           </button>
+          <SignOutMenuItem disabled={pending} />
         </div>
       ) : null}
     </div>

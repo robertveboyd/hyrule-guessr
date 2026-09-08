@@ -1,7 +1,7 @@
 "use server";
 
 import { requireExclusiveSession } from "@/lib/auth/check-exclusive-session";
-import { SP_RUN_MODES, type SpRunMode } from "@/lib/game/practice";
+import { isSpRunMode, type SpRunMode } from "@/lib/game/practice";
 
 import {
   abandonPractice,
@@ -38,7 +38,7 @@ async function withExclusive<T>(
 }
 
 function parseMode(mode: string): SpRunMode | null {
-  return SP_RUN_MODES.includes(mode as SpRunMode) ? (mode as SpRunMode) : null;
+  return isSpRunMode(mode) ? mode : null;
 }
 
 export async function loadPracticeHomeAction(
