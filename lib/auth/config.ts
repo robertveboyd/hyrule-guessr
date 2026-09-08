@@ -13,6 +13,13 @@ export const authConfig = {
   providers: [],
   callbacks: {
     authorized({ auth, request }) {
+      if (
+        process.env.NODE_ENV !== "development" &&
+        request.nextUrl.pathname === "/map"
+      ) {
+        return new Response(null, { status: 404 });
+      }
+
       const isLoggedIn = typeof auth?.user?.id === "string";
       const isLogin = request.nextUrl.pathname === "/login";
 

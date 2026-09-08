@@ -134,3 +134,11 @@
   border: 2px solid #1a1208;
   border-radius: 50%;
 }
+
+.botw-map-pin-dot-guess {
+  background: #3ec8e0;
+}
+
+.botw-map-pin-dot-truth {
+  background: #e0a01a;
+}

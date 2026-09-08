@@ -29,6 +29,27 @@
       "when": 1788647816324,
       "tag": "0003_daily_ultron",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788705250697,
+      "tag": "0004_dry_talon",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788705292876,
+      "tag": "0005_loud_unicorn",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788722508117,
+      "tag": "0006_sp_round_index_check",
+      "breakpoints": true
     }
   ]
 }

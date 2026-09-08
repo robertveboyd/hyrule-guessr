@@ -33,9 +33,11 @@ Mirror BotW map tiles once (gitignored `public/maptex/`; Nintendo art, sourced f
 pnpm map:mirror-tiles
 ```
 
-Logged-in **Map** on home opens `/map`. Local tiles: `NEXT_PUBLIC_MAP_TILES_URL=/maptex/{z}/{x}/{y}.png`. Production points that env at Vercel Blob (`pnpm map:upload-tiles`); do not commit the pyramid.
+**Casual** / **Timed** start practice (`/play`). The still is full-bleed; round and running score sit top-right, the timed clock top-center, and the guess map is a GeoGuessr-style overlay (hover or **M** to enlarge). Local tiles: `NEXT_PUBLIC_MAP_TILES_URL=/maptex/{z}/{x}/{y}.png`. Production points that env at Vercel Blob (`pnpm map:upload-tiles`); do not commit the pyramid.
 
-Operator stills (gitignored `public/catalog/`; do not commit):
+Logged-in **Map** (`/map`) is **development only** (`pnpm dev`). Click a point to read BotW `(x, z)` when cataloging stills. Production 404s that route. The `/play` overlay does not print coordinates.
+
+Operator stills (gitignored `public/catalog/`; do not commit). Use `/map` in `pnpm dev` to read `(x, z)` after you capture a photomode still:
 
 ```bash
 pnpm catalog:add -- --dev --file public/catalog/00001.jpg --x -1023 --z 1796

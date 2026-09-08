@@ -11,9 +11,9 @@ describe("loginPathWithCallback", () => {
   });
 
   it("keeps a gated path and query", () => {
-    expect(loginPathWithCallback("/map")).toBe("/login?callbackUrl=%2Fmap");
-    expect(loginPathWithCallback("/map?z=1")).toBe(
-      "/login?callbackUrl=%2Fmap%3Fz%3D1",
+    expect(loginPathWithCallback("/play")).toBe("/login?callbackUrl=%2Fplay");
+    expect(loginPathWithCallback("/play?round=1")).toBe(
+      "/login?callbackUrl=%2Fplay%3Fround%3D1",
     );
   });
 });

@@ -1,0 +1,2 @@
+ALTER TABLE "sp_rounds" ADD CONSTRAINT "sp_rounds_round_index_check" CHECK ("sp_rounds"."round_index" >= 1 AND "sp_rounds"."round_index" <= 5);--> statement-breakpoint
+ALTER TABLE "sp_runs" ADD CONSTRAINT "sp_runs_current_round_index_check" CHECK ("sp_runs"."current_round_index" >= 1 AND "sp_runs"."current_round_index" <= 5);
