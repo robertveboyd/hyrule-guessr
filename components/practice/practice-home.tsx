@@ -148,6 +148,9 @@ export function PracticeHome() {
           <Button asChild className={lobbyCtaClassName}>
             <Link href="/play">Continue</Link>
           </Button>
+          <Button asChild variant="outline" className={lobbyCtaClassName}>
+            <Link href="/friends">Friends</Link>
+          </Button>
         </LobbyActions>
       </LobbyShell>
     );
@@ -162,6 +165,9 @@ export function PracticeHome() {
         <PracticeSplitButton pending={pending} onStart={start} />
         <Button className={lobbyCtaClassName} disabled>
           Versus
+        </Button>
+        <Button asChild variant="outline" className={lobbyCtaClassName}>
+          <Link href="/friends">Friends</Link>
         </Button>
       </LobbyActions>
     </LobbyShell>

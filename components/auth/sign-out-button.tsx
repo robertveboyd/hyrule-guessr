@@ -3,9 +3,11 @@
 import { Button } from "@/components/ui/button";
 import { signOutAction } from "@/lib/auth/actions/sign-out";
 import { postSignedOut } from "@/lib/auth/session-channel";
-import { clearSessionId } from "@/lib/auth/session-storage";
+import { clearSessionId, readSessionId } from "@/lib/auth/session-storage";
+import { clearPresenceAction } from "@/lib/friends/actions";
 
 function prepareSignOut() {
+  void clearPresenceAction(readSessionId());
   clearSessionId();
   postSignedOut();
 }

@@ -28,9 +28,13 @@ function readReplacedSessionId(data: string): string | null {
 export async function connectUserSessionParty({
   userId,
   onKicked,
+  onSocketOpen,
+  onSocketClose,
 }: {
   userId: string;
   onKicked: () => void;
+  onSocketOpen?: () => void;
+  onSocketClose?: () => void;
 }): Promise<() => void> {
   const host = process.env.NEXT_PUBLIC_PARTYKIT_HOST;
   if (!host) return () => {};
@@ -42,12 +46,12 @@ export async function connectUserSessionParty({
   }
 
   let kicked = false;
-  let socket: PartySocket | undefined;
+  const session = { socket: undefined as PartySocket | undefined };
 
   const kick = () => {
     if (kicked) return;
     kicked = true;
-    socket?.close();
+    session.socket?.close();
     onKicked();
   };
 
@@ -60,7 +64,7 @@ export async function connectUserSessionParty({
     }
   };
 
-  socket = new PartySocket({
+  const socket = new PartySocket({
     host,
     party: USER_SESSION_PARTY,
     room: userId,
@@ -76,6 +80,7 @@ export async function connectUserSessionParty({
       event.code !== USER_SESSION_CLOSE_REPLACED &&
       event.code !== USER_SESSION_CLOSE_UNAUTHORIZED,
   });
+  session.socket = socket;
 
   const onMessage = (event: MessageEvent<string>) => {
     const sessionId = readReplacedSessionId(event.data);
@@ -84,18 +89,25 @@ export async function connectUserSessionParty({
     kick();
   };
 
+  const onOpen = () => {
+    onSocketOpen?.();
+  };
+
   const onClose = (event: CloseEvent) => {
+    onSocketClose?.();
     if (event.code === USER_SESSION_CLOSE_REPLACED) {
       void confirmReplacedKick();
     }
   };
 
+  socket.addEventListener("open", onOpen);
   socket.addEventListener("message", onMessage);
   socket.addEventListener("close", onClose);
 
   return () => {
-    socket?.removeEventListener("message", onMessage);
-    socket?.removeEventListener("close", onClose);
-    socket?.close();
+    socket.removeEventListener("open", onOpen);
+    socket.removeEventListener("message", onMessage);
+    socket.removeEventListener("close", onClose);
+    socket.close();
   };
 }

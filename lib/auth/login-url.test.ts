@@ -12,6 +12,9 @@ describe("loginPathWithCallback", () => {
 
   it("keeps a gated path and query", () => {
     expect(loginPathWithCallback("/play")).toBe("/login?callbackUrl=%2Fplay");
+    expect(loginPathWithCallback("/friends")).toBe(
+      "/login?callbackUrl=%2Ffriends",
+    );
     expect(loginPathWithCallback("/play?round=1")).toBe(
       "/login?callbackUrl=%2Fplay%3Fround%3D1",
     );

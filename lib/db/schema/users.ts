@@ -21,6 +21,7 @@ export const users = pgTable(
     username: text("username").notNull(),
     avatarId: text("avatar_id").notNull().default("default"),
     sessionId: uuid("session_id"),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
+import { FriendsDock } from "@/components/friends/friends-dock";
 import { connectUserSessionParty } from "@/lib/auth/connect-user-session";
 import { fetchExclusiveSessionActive } from "@/lib/auth/fetch-exclusive-session";
 import { sendToLogin } from "@/lib/auth/send-to-login";
@@ -11,6 +12,7 @@ import {
 } from "@/lib/auth/session-channel";
 import { requestExclusiveSessionLock } from "@/lib/auth/session-lock";
 import { readSessionId } from "@/lib/auth/session-storage";
+import { usePresenceHeartbeat } from "@/lib/friends/use-presence-heartbeat";
 
 export function ExclusiveSessionGate({
   userId,
@@ -19,6 +21,9 @@ export function ExclusiveSessionGate({
   userId: string;
   children: ReactNode;
 }) {
+  const [socketOpen, setSocketOpen] = useState(false);
+  usePresenceHeartbeat(socketOpen);
+
   useEffect(() => {
     const abort = new AbortController();
     let kicked = false;
@@ -27,6 +32,7 @@ export function ExclusiveSessionGate({
     const onKicked = () => {
       if (kicked) return;
       kicked = true;
+      setSocketOpen(false);
       sendToLogin();
     };
 
@@ -52,6 +58,12 @@ export function ExclusiveSessionGate({
         unsubscribeParty = await connectUserSessionParty({
           userId,
           onKicked,
+          onSocketOpen: () => {
+            if (!abort.signal.aborted) setSocketOpen(true);
+          },
+          onSocketClose: () => {
+            if (!abort.signal.aborted) setSocketOpen(false);
+          },
         });
         if (abort.signal.aborted) unsubscribeParty();
       } catch {
@@ -73,10 +85,16 @@ export function ExclusiveSessionGate({
 
     return () => {
       abort.abort();
+      setSocketOpen(false);
       unsubscribeChannel();
       unsubscribeParty();
     };
   }, [userId]);
 
-  return children;
+  return (
+    <>
+      {children}
+      <FriendsDock />
+    </>
+  );
 }
