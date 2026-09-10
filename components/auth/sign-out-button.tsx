@@ -5,9 +5,11 @@ import { signOutAction } from "@/lib/auth/actions/sign-out";
 import { postSignedOut } from "@/lib/auth/session-channel";
 import { clearSessionId, readSessionId } from "@/lib/auth/session-storage";
 import { clearPresenceAction } from "@/lib/friends/actions";
+import { clearLastPracticeHome } from "@/lib/practice/last-home";
 
 function prepareSignOut() {
   void clearPresenceAction(readSessionId());
+  clearLastPracticeHome();
   clearSessionId();
   postSignedOut();
 }

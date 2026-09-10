@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { HomeIdleActions, HomeLoading } from "@/components/lobby/home-idle-actions";
+import { useReportHomeReady } from "@/components/lobby/home-ready";
 import { LobbyActions, LobbyShell, lobbyCtaClassName } from "@/components/lobby/lobby-shell";
-import { PracticeSplitButton } from "@/components/practice/practice-split-button";
 import { Button } from "@/components/ui/button";
 import { sendToLogin } from "@/lib/auth/send-to-login";
 import { readSessionId } from "@/lib/auth/session-storage";
@@ -18,10 +19,42 @@ import {
   PRACTICE_UNEXPECTED_MESSAGE,
   practiceErrorMessage,
 } from "@/lib/practice/error-copy";
+import {
+  clearLastPracticeHome,
+  readLastPracticeHome,
+  subscribeLastPracticeHome,
+  writeLastPracticeHome,
+} from "@/lib/practice/last-home";
 import type { PracticeHomeDto } from "@/lib/practice/types";
+
+function subscribeClient() {
+  return () => {};
+}
+
+function getClientBooted() {
+  return true;
+}
+
+function getServerBooted() {
+  return false;
+}
+
+function getServerHome() {
+  return null;
+}
 
 export function PracticeHome() {
   const router = useRouter();
+  const booted = useSyncExternalStore(
+    subscribeClient,
+    getClientBooted,
+    getServerBooted,
+  );
+  const cached = useSyncExternalStore(
+    subscribeLastPracticeHome,
+    readLastPracticeHome,
+    getServerHome,
+  );
   const [home, setHome] = useState<PracticeHomeDto | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -36,6 +69,7 @@ export function PracticeHome() {
       if (cancelled || !aliveRef.current) return;
       if (!result.ok) {
         if (result.code === "forbidden") {
+          clearLastPracticeHome();
           sendToLogin();
           return;
         }
@@ -43,6 +77,7 @@ export function PracticeHome() {
         return;
       }
       setMessage(null);
+      writeLastPracticeHome(result.data);
       setHome(result.data);
     },
     [],
@@ -85,12 +120,16 @@ export function PracticeHome() {
       const result = await startPracticeAction(readSessionId(), mode);
       if (!result.ok) {
         if (result.code === "forbidden") {
+          clearLastPracticeHome();
           sendToLogin();
           return;
         }
         setMessage(practiceErrorMessage(result.code));
         return;
       }
+      writeLastPracticeHome({
+        active: { mode, roundIndex: 1, phase: "guessing" },
+      });
       started = true;
       router.push("/play");
     } catch {
@@ -103,32 +142,32 @@ export function PracticeHome() {
     }
   }
 
-  const active = home?.active;
+  const view = home ?? cached;
+  const active = view?.active;
+  useReportHomeReady(booted && (view !== null || message !== null));
 
-  if (!home) {
-    return (
-      <LobbyShell>
-        {message ? (
-          <>
-            <p className="max-w-sm text-center text-sm text-danger">{message}</p>
-            <LobbyActions showMap>
-              <Button
-                type="button"
-                className={lobbyCtaClassName}
-                onClick={() => void requestHome()}
-              >
-                Retry
-              </Button>
-            </LobbyActions>
-          </>
-        ) : (
-          <>
-            <p className="text-sm text-muted-foreground">Loading…</p>
-            <LobbyActions showMap />
-          </>
-        )}
-      </LobbyShell>
-    );
+  if (!booted) {
+    return <div className="min-h-full flex-1" />;
+  }
+
+  if (!view) {
+    if (message) {
+      return (
+        <LobbyShell>
+          <p className="max-w-sm text-center text-sm text-danger">{message}</p>
+          <LobbyActions showMap>
+            <Button
+              type="button"
+              className={lobbyCtaClassName}
+              onClick={() => void requestHome()}
+            >
+              Retry
+            </Button>
+          </LobbyActions>
+        </LobbyShell>
+      );
+    }
+    return <HomeLoading />;
   }
 
   if (active) {
@@ -161,15 +200,7 @@ export function PracticeHome() {
       {message ? (
         <p className="max-w-sm text-center text-sm text-danger">{message}</p>
       ) : null}
-      <LobbyActions showMap>
-        <PracticeSplitButton pending={pending} onStart={start} />
-        <Button className={lobbyCtaClassName} disabled>
-          Versus
-        </Button>
-        <Button asChild variant="outline" className={lobbyCtaClassName}>
-          <Link href="/friends">Friends</Link>
-        </Button>
-      </LobbyActions>
+      <HomeIdleActions pending={pending} onStart={start} />
     </LobbyShell>
   );
 }

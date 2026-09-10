@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 
 import { FriendsDock } from "@/components/friends/friends-dock";
+import { HomeReadyProvider, useShowFriendsDock } from "@/components/lobby/home-ready";
 import { connectUserSessionParty } from "@/lib/auth/connect-user-session";
 import { fetchExclusiveSessionActive } from "@/lib/auth/fetch-exclusive-session";
 import { sendToLogin } from "@/lib/auth/send-to-login";
@@ -21,7 +22,22 @@ export function ExclusiveSessionGate({
   userId: string;
   children: ReactNode;
 }) {
+  return (
+    <HomeReadyProvider>
+      <ExclusiveSessionGateBody userId={userId}>{children}</ExclusiveSessionGateBody>
+    </HomeReadyProvider>
+  );
+}
+
+function ExclusiveSessionGateBody({
+  userId,
+  children,
+}: {
+  userId: string;
+  children: ReactNode;
+}) {
   const [socketOpen, setSocketOpen] = useState(false);
+  const showFriendsDock = useShowFriendsDock();
   usePresenceHeartbeat(socketOpen);
 
   useEffect(() => {
@@ -92,9 +108,9 @@ export function ExclusiveSessionGate({
   }, [userId]);
 
   return (
-    <>
+    <div className="flex min-h-full flex-1 flex-col">
       {children}
-      <FriendsDock />
-    </>
+      {showFriendsDock ? <FriendsDock /> : null}
+    </div>
   );
 }

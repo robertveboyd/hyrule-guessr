@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { sendToLogin } from "@/lib/auth/send-to-login";
 import { readSessionId } from "@/lib/auth/session-storage";
 import type { GamePoint } from "@/lib/game/crs";
-import { SP_LOCK_IN_GRACE_MS } from "@/lib/game/practice";
+import { SP_LOCK_IN_GRACE_MS, SP_ROUND_COUNT } from "@/lib/game/practice";
 import {
   abandonPracticeAction,
   continuePracticeAction,
@@ -24,6 +24,7 @@ import {
   PRACTICE_UNEXPECTED_MESSAGE,
   practiceErrorMessage,
 } from "@/lib/practice/error-copy";
+import { clearLastPracticeHome, writeLastPracticeHome } from "@/lib/practice/last-home";
 import type { PlayDto } from "@/lib/practice/types";
 
 const GuessMap = dynamic(
@@ -109,10 +110,12 @@ export function PracticePlay() {
   const fail = useCallback(
     (code: Parameters<typeof practiceErrorMessage>[0]) => {
       if (code === "forbidden") {
+        clearLastPracticeHome();
         sendToLogin();
         return;
       }
       if (code === "no-run") {
+        writeLastPracticeHome({ active: null });
         router.replace("/");
         return;
       }
@@ -237,6 +240,17 @@ export function PracticePlay() {
   }, [applyPlay, fail, runMutation]);
 
   async function leave() {
+    const current = playRef.current;
+    if (current) {
+      writeLastPracticeHome({
+        active: {
+          mode: current.mode,
+          roundIndex:
+            current.phase === "summary" ? SP_ROUND_COUNT : current.roundIndex,
+          phase: current.phase,
+        },
+      });
+    }
     router.push("/");
   }
 
@@ -247,6 +261,7 @@ export function PracticePlay() {
         fail(result.code);
         return;
       }
+      writeLastPracticeHome({ active: null });
       router.push("/");
     });
   }
@@ -258,6 +273,7 @@ export function PracticePlay() {
         fail(result.code);
         return;
       }
+      writeLastPracticeHome({ active: null });
       router.push("/");
     });
   }
