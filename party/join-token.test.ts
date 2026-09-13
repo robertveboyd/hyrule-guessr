@@ -36,9 +36,9 @@ describe("join token", () => {
   it("rejects a bad signature and a wrong secret", async () => {
     const token = await mintJoinToken(secret, userId, sessionId);
     const [header, payload, signature] = token.split(".");
-    const flipped = signature.endsWith("a")
-      ? `${signature.slice(0, -1)}b`
-      : `${signature.slice(0, -1)}a`;
+    const flipped = signature.startsWith("a")
+      ? `b${signature.slice(1)}`
+      : `a${signature.slice(1)}`;
 
     expect(await verifyJoinToken(secret, `${header}.${payload}.${flipped}`)).toBeNull();
     expect(await verifyJoinToken("other-secret", token)).toBeNull();

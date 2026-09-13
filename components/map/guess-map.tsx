@@ -8,6 +8,7 @@ import type { ReactNode } from "react";
 export function GuessMap({
   guess,
   truth = null,
+  opponent = null,
   interactive,
   expanded,
   onGuess,
@@ -15,16 +16,19 @@ export function GuessMap({
   onPointerLeave,
   onActivate,
   footer,
+  className,
 }: {
   guess: GamePoint | null;
   truth?: GamePoint | null;
+  opponent?: GamePoint | null;
   interactive: boolean;
   expanded: boolean;
   onGuess: (point: GamePoint) => void;
   onPointerEnter?: () => void;
   onPointerLeave?: () => void;
   onActivate?: () => void;
-  footer: ReactNode;
+  footer?: ReactNode;
+  className?: string;
 }) {
   return (
     <div
@@ -33,6 +37,7 @@ export function GuessMap({
         expanded
           ? "h-[min(38rem,calc(100%-1.5rem))] w-[min(52rem,72vw)]"
           : "h-40 w-52 sm:h-48 sm:w-72",
+        className,
       )}
       aria-expanded={expanded}
       aria-label="Guess map"
@@ -48,17 +53,20 @@ export function GuessMap({
           className="h-full w-full"
           guess={guess}
           truth={truth}
+          opponent={opponent}
           guessKind="guess"
           interactive={interactive}
           onGuess={onGuess}
-          showLine={Boolean(guess && truth)}
+          showLine={Boolean(truth)}
           showZoom={expanded}
           visible={expanded}
         />
       </div>
-      <div className="flex w-full shrink-0 flex-col gap-1.5 bg-hud px-2 py-1.5">
-        {footer}
-      </div>
+      {footer ? (
+        <div className="flex w-full shrink-0 flex-col gap-1.5 bg-hud px-2 py-1.5">
+          {footer}
+        </div>
+      ) : null}
     </div>
   );
 }

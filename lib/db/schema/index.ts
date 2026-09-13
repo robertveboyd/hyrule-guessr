@@ -19,3 +19,22 @@ export {
   SpRunsUnique,
   stillsRelations,
 } from "./practice";
+export {
+  matchInvites,
+  matchInvitesRelations,
+  MatchInvitesUnique,
+  matchInviteKindEnum,
+  matchInviteStatusEnum,
+  matchModeEnum,
+  matchRounds,
+  matchRoundsRelations,
+  MatchRoundsUnique,
+  matches,
+  matchesRelations,
+  MatchSeatsUnique,
+  matchSeatRoleEnum,
+  matchSeats,
+  matchSeatsRelations,
+  matchStatusEnum,
+  MatchesUnique,
+} from "./matches";

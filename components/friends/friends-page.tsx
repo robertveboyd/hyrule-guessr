@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { FriendAvatar, OnlineDot } from "@/components/friends/friend-avatar";
+import { MatchInviteOverlay } from "@/components/match/match-invite-overlay";
+import { useMatchHome } from "@/components/match/use-match-home";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { sendToLogin } from "@/lib/auth/send-to-login";
@@ -33,6 +35,7 @@ function session() {
 
 export function FriendsPage() {
   const router = useRouter();
+  const match = useMatchHome();
   const [list, setList] = useState<FriendsListDto | null>(null);
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<SearchHitDto[] | null>(null);
@@ -146,14 +149,20 @@ export function FriendsPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-8 px-4 py-8">
+      <MatchInviteOverlay
+        invites={match.matchHome?.incomingInvites ?? []}
+        pending={pending || match.pending}
+        onAccept={(matchId) => void match.acceptInvite(matchId)}
+        onDecline={(matchId) => void match.declineInvite(matchId)}
+      />
       <div className="flex items-center justify-between gap-3">
         <h1 className="font-heading text-3xl">Friends</h1>
         <Button type="button" variant="outline" onClick={() => router.push("/")}>
           Home
         </Button>
       </div>
-      {message ? (
-        <p className="text-sm text-danger">{message}</p>
+      {message || match.message ? (
+        <p className="text-sm text-danger">{message ?? match.message}</p>
       ) : null}
 
       <section className="flex flex-col gap-3">
@@ -293,8 +302,12 @@ export function FriendsPage() {
                   <span className="flex min-w-0 flex-col">
                     <span className="truncate">{user.username}</span>
                     <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <OnlineDot online={user.online} />
-                      {user.online ? "Online" : "Offline"}
+                      <OnlineDot online={user.online} busy={user.busy} />
+                      {user.online
+                        ? user.busy
+                          ? "Busy"
+                          : "Online"
+                        : "Offline"}
                     </span>
                   </span>
                 </span>

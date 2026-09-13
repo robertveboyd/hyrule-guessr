@@ -27,6 +27,7 @@ export type SearchHitDto = PublicUserDto & {
 
 export type FriendRowDto = PublicUserDto & {
   online: boolean;
+  busy: boolean;
 };
 
 export type FriendsListDto = {

@@ -79,7 +79,7 @@ export function FriendsDock() {
                 >
                   <FriendAvatar username={friend.username} />
                   <span className="min-w-0 flex-1 truncate">{friend.username}</span>
-                  <OnlineDot online={friend.online} />
+                  <OnlineDot online={friend.online} busy={friend.busy} />
                 </li>
               ))}
             </ul>

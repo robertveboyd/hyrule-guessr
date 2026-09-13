@@ -6,11 +6,17 @@ import { useRouter } from "next/navigation";
 
 import { HomeIdleActions, HomeLoading } from "@/components/lobby/home-idle-actions";
 import { useReportHomeReady } from "@/components/lobby/home-ready";
-import { LobbyActions, LobbyShell, lobbyCtaClassName } from "@/components/lobby/lobby-shell";
+import { LobbyActions, LobbyShell, StatusLine, lobbyCtaClassName } from "@/components/lobby/lobby-shell";
+import { MatchInviteOverlay } from "@/components/match/match-invite-overlay";
+import { MatchRejoinCard } from "@/components/match/match-rejoin-card";
+import { useMatchHome } from "@/components/match/use-match-home";
 import { Button } from "@/components/ui/button";
 import { sendToLogin } from "@/lib/auth/send-to-login";
 import { readSessionId } from "@/lib/auth/session-storage";
+import type { MatchHostRole } from "@/lib/game/match";
 import type { SpRunMode } from "@/lib/game/practice";
+import { createMatchAction } from "@/lib/match/actions";
+import { MATCH_UNEXPECTED_MESSAGE, matchErrorMessage } from "@/lib/match/error-copy";
 import {
   loadPracticeHomeAction,
   startPracticeAction,
@@ -19,12 +25,6 @@ import {
   PRACTICE_UNEXPECTED_MESSAGE,
   practiceErrorMessage,
 } from "@/lib/practice/error-copy";
-import {
-  clearLastPracticeHome,
-  readLastPracticeHome,
-  subscribeLastPracticeHome,
-  writeLastPracticeHome,
-} from "@/lib/practice/last-home";
 import type { PracticeHomeDto } from "@/lib/practice/types";
 
 function subscribeClient() {
@@ -39,10 +39,6 @@ function getServerBooted() {
   return false;
 }
 
-function getServerHome() {
-  return null;
-}
-
 export function PracticeHome() {
   const router = useRouter();
   const booted = useSyncExternalStore(
@@ -50,16 +46,12 @@ export function PracticeHome() {
     getClientBooted,
     getServerBooted,
   );
-  const cached = useSyncExternalStore(
-    subscribeLastPracticeHome,
-    readLastPracticeHome,
-    getServerHome,
-  );
   const [home, setHome] = useState<PracticeHomeDto | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const pendingRef = useRef(false);
   const aliveRef = useRef(true);
+  const match = useMatchHome();
 
   const consumeHome = useCallback(
     (
@@ -69,7 +61,6 @@ export function PracticeHome() {
       if (cancelled || !aliveRef.current) return;
       if (!result.ok) {
         if (result.code === "forbidden") {
-          clearLastPracticeHome();
           sendToLogin();
           return;
         }
@@ -77,7 +68,6 @@ export function PracticeHome() {
         return;
       }
       setMessage(null);
-      writeLastPracticeHome(result.data);
       setHome(result.data);
     },
     [],
@@ -120,16 +110,12 @@ export function PracticeHome() {
       const result = await startPracticeAction(readSessionId(), mode);
       if (!result.ok) {
         if (result.code === "forbidden") {
-          clearLastPracticeHome();
           sendToLogin();
           return;
         }
         setMessage(practiceErrorMessage(result.code));
         return;
       }
-      writeLastPracticeHome({
-        active: { mode, roundIndex: 1, phase: "guessing" },
-      });
       started = true;
       router.push("/play");
     } catch {
@@ -142,19 +128,65 @@ export function PracticeHome() {
     }
   }
 
-  const view = home ?? cached;
+  async function versus(role: MatchHostRole) {
+    if (pendingRef.current) return;
+    pendingRef.current = true;
+    setPending(true);
+    setMessage(null);
+    let started = false;
+    try {
+      const result = await createMatchAction(readSessionId(), role);
+      if (!result.ok) {
+        if (result.code === "forbidden") {
+          sendToLogin();
+          return;
+        }
+        setMessage(matchErrorMessage(result.code));
+        return;
+      }
+      started = true;
+      router.push(`/match/${result.data.matchId}`);
+    } catch {
+      setMessage(MATCH_UNEXPECTED_MESSAGE);
+    } finally {
+      if (!started) {
+        pendingRef.current = false;
+        setPending(false);
+      }
+    }
+  }
+
+  const view = home;
   const active = view?.active;
-  useReportHomeReady(booted && (view !== null || message !== null));
+  const matchReady = match.matchReady;
+  const error = message ?? match.message;
+  const busy = pending || match.pending;
+  const rejoinCard = match.matchHome?.rejoin ? (
+    <MatchRejoinCard rejoin={match.matchHome.rejoin} />
+  ) : null;
+  const inviteOverlay = (
+    <MatchInviteOverlay
+      invites={match.matchHome?.incomingInvites ?? []}
+      pending={busy}
+      onAccept={(matchId) => void match.acceptInvite(matchId)}
+      onDecline={(matchId) => void match.declineInvite(matchId)}
+    />
+  );
+
+  useReportHomeReady(
+    booted &&
+      ((view !== null && matchReady) || (message !== null && view === null)),
+  );
 
   if (!booted) {
     return <div className="min-h-full flex-1" />;
   }
 
-  if (!view) {
-    if (message) {
+  if (!view || !matchReady) {
+    if (message && !view) {
       return (
         <LobbyShell>
-          <p className="max-w-sm text-center text-sm text-danger">{message}</p>
+          <StatusLine tone="danger">{message}</StatusLine>
           <LobbyActions showMap>
             <Button
               type="button"
@@ -178,29 +210,45 @@ export function PracticeHome() {
         : `${modeLabel} run in progress — round ${active.roundIndex}`;
 
     return (
-      <LobbyShell>
-        {message ? (
-          <p className="max-w-sm text-center text-sm text-danger">{message}</p>
-        ) : null}
-        <p className="text-sm text-muted-foreground">{status}</p>
-        <LobbyActions showMap>
-          <Button asChild className={lobbyCtaClassName}>
-            <Link href="/play">Continue</Link>
-          </Button>
-          <Button asChild variant="outline" className={lobbyCtaClassName}>
-            <Link href="/friends">Friends</Link>
-          </Button>
-        </LobbyActions>
-      </LobbyShell>
+      <>
+        {inviteOverlay}
+        <LobbyShell>
+          <StatusLine tone="danger">{error}</StatusLine>
+          <p className="text-sm text-muted-foreground">{status}</p>
+          <LobbyActions showMap>
+            <Button asChild className={lobbyCtaClassName}>
+              <Link href="/play">Continue</Link>
+            </Button>
+            <Button asChild variant="outline" className={lobbyCtaClassName}>
+              <Link href="/friends">Friends</Link>
+            </Button>
+          </LobbyActions>
+          {rejoinCard}
+        </LobbyShell>
+      </>
     );
   }
 
   return (
-    <LobbyShell>
-      {message ? (
-        <p className="max-w-sm text-center text-sm text-danger">{message}</p>
-      ) : null}
-      <HomeIdleActions pending={pending} onStart={start} />
-    </LobbyShell>
+    <>
+      {inviteOverlay}
+      <LobbyShell>
+        <StatusLine tone={error ? "danger" : "muted"}>
+          {error ??
+            (match.matchHome?.rejoin
+              ? match.matchHome.rejoin.status === "live"
+                ? "Rejoin your match to continue."
+                : "Rejoin or leave your current lobby first."
+              : null)}
+        </StatusLine>
+        {rejoinCard}
+        <HomeIdleActions
+          pending={busy}
+          versusDisabled={Boolean(match.matchHome?.rejoin)}
+          onStart={start}
+          onVersus={versus}
+        />
+      </LobbyShell>
+    </>
   );
 }

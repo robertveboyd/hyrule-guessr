@@ -33,19 +33,25 @@ function createBotwCrs(): L.CRS {
 }
 
 const PIN_SIZE = 12;
+const GUESS_LINE = "#3ec8e0";
+const OPPONENT_LINE = "#e0a01a";
 
-function pinIcon(kind: "preview" | "guess" | "truth") {
-  const dot =
+type PinKind = "preview" | "guess" | "truth" | "opponent";
+
+function pinIcon(kind: PinKind) {
+  const extra =
     kind === "guess"
-      ? "botw-map-pin-dot botw-map-pin-dot-guess"
+      ? " botw-map-pin-dot-guess"
       : kind === "truth"
-        ? "botw-map-pin-dot botw-map-pin-dot-truth"
-        : "botw-map-pin-dot";
+        ? " botw-map-pin-dot-truth"
+        : kind === "opponent"
+          ? " botw-map-pin-dot-opponent"
+          : "";
   return L.divIcon({
     className: "botw-map-pin",
     iconSize: [PIN_SIZE, PIN_SIZE],
     iconAnchor: [PIN_SIZE / 2, PIN_SIZE / 2],
-    html: `<span class="${dot}"></span>`,
+    html: `<span class="botw-map-pin-dot${extra}"></span>`,
   });
 }
 
@@ -78,11 +84,52 @@ function keepPinSize(map: L.Map, pin: L.Marker, zoom: number, center: L.LatLng) 
   L.DomUtil.setTransform(icon, pos, 1 / map.getZoomScale(zoom));
 }
 
+function syncLine(
+  map: L.Map,
+  ref: { current: L.Polyline | null },
+  from: GamePoint | null,
+  to: GamePoint | null,
+  color: string,
+) {
+  if (!from || !to) {
+    if (ref.current) {
+      map.removeLayer(ref.current);
+      ref.current = null;
+    }
+    return;
+  }
+  const latlngs: L.LatLngExpression[] = [toLatLng(from), toLatLng(to)];
+  if (ref.current) {
+    ref.current.setLatLngs(latlngs);
+    ref.current.setStyle({ color });
+    return;
+  }
+  ref.current = L.polyline(latlngs, {
+    color,
+    weight: 2,
+    opacity: 0.9,
+  }).addTo(map);
+}
+
+function fitPins(map: L.Map, points: Array<GamePoint | null | undefined>) {
+  const present = points.filter((point): point is GamePoint => Boolean(point));
+  if (present.length === 0) return;
+  if (present.length === 1) {
+    map.setView(toLatLng(present[0]), 5);
+    return;
+  }
+  map.fitBounds(L.latLngBounds(present.map(toLatLng)), {
+    padding: [56, 56],
+    maxZoom: 6,
+  });
+}
+
 export type BotwLeafletProps = {
   className?: string;
   interactive?: boolean;
   guess?: GamePoint | null;
   truth?: GamePoint | null;
+  opponent?: GamePoint | null;
   onGuess?: (point: GamePoint) => void;
   guessKind?: "preview" | "guess";
   showLine?: boolean;
@@ -95,6 +142,7 @@ export function BotwLeaflet({
   interactive = true,
   guess = null,
   truth = null,
+  opponent = null,
   onGuess,
   guessKind = "guess",
   showLine = false,
@@ -105,7 +153,9 @@ export function BotwLeaflet({
   const mapRef = useRef<L.Map | null>(null);
   const guessPinRef = useRef<L.Marker | null>(null);
   const truthPinRef = useRef<L.Marker | null>(null);
-  const lineRef = useRef<L.Polyline | null>(null);
+  const opponentPinRef = useRef<L.Marker | null>(null);
+  const guessLineRef = useRef<L.Polyline | null>(null);
+  const opponentLineRef = useRef<L.Polyline | null>(null);
   const interactiveRef = useRef(interactive);
   const onGuessRef = useRef(onGuess);
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
@@ -188,6 +238,9 @@ export function BotwLeaflet({
         if (truthPinRef.current) {
           keepPinSize(current, truthPinRef.current, event.zoom, event.center);
         }
+        if (opponentPinRef.current) {
+          keepPinSize(current, opponentPinRef.current, event.zoom, event.center);
+        }
       });
     };
     map.on("zoomanim", onZoomAnim);
@@ -206,7 +259,9 @@ export function BotwLeaflet({
       mapRef.current = null;
       guessPinRef.current = null;
       truthPinRef.current = null;
-      lineRef.current = null;
+      opponentPinRef.current = null;
+      guessLineRef.current = null;
+      opponentLineRef.current = null;
       setMapReady(false);
     };
   }, []);
@@ -218,7 +273,7 @@ export function BotwLeaflet({
     const syncMarker = (
       pinRef: { current: L.Marker | null },
       point: GamePoint | null,
-      kind: "preview" | "guess" | "truth",
+      kind: PinKind,
     ) => {
       if (!point) {
         if (pinRef.current) {
@@ -242,28 +297,22 @@ export function BotwLeaflet({
 
     syncMarker(guessPinRef, guess, guessKind);
     syncMarker(truthPinRef, truth, "truth");
+    syncMarker(opponentPinRef, opponent, "opponent");
 
-    if (showLine && guess && truth) {
-      const latlngs: L.LatLngExpression[] = [toLatLng(guess), toLatLng(truth)];
-      if (lineRef.current) {
-        lineRef.current.setLatLngs(latlngs);
-      } else {
-        lineRef.current = L.polyline(latlngs, {
-          color: "#e8eef5",
-          weight: 2,
-          opacity: 0.9,
-        }).addTo(map);
-      }
-    } else if (lineRef.current) {
-      map.removeLayer(lineRef.current);
-      lineRef.current = null;
+    if (showLine) {
+      syncLine(map, guessLineRef, guess, truth, GUESS_LINE);
+      syncLine(map, opponentLineRef, opponent, truth, OPPONENT_LINE);
+      fitPins(map, [guess, opponent, truth]);
+    } else {
+      syncLine(map, guessLineRef, null, null, GUESS_LINE);
+      syncLine(map, opponentLineRef, null, null, OPPONENT_LINE);
     }
 
-    if (!guess && !truth) {
+    if (!guess && !truth && !opponent) {
       const origin = gameToLatLng({ x: 0, z: 0 });
       map.setView([origin.lat, origin.lng], DEFAULT_ZOOM);
     }
-  }, [guess, truth, guessKind, showLine, mapReady]);
+  }, [guess, truth, opponent, guessKind, showLine, mapReady]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -272,28 +321,22 @@ export function BotwLeaflet({
       const map = mapRef.current;
       if (!map) return;
       map.invalidateSize();
-      if (showLine && guess && truth) {
-        map.fitBounds(L.latLngBounds([toLatLng(guess), toLatLng(truth)]), {
-          padding: [48, 48],
-          maxZoom: 6,
-        });
+      if (showLine) {
+        fitPins(map, [guess, opponent, truth]);
       }
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, [guess, mapReady, showLine, truth]);
+  }, [guess, mapReady, opponent, showLine, truth]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
     map.invalidateSize();
-    if (showLine && guess && truth) {
-      map.fitBounds(L.latLngBounds([toLatLng(guess), toLatLng(truth)]), {
-        padding: [48, 48],
-        maxZoom: 6,
-      });
+    if (showLine) {
+      fitPins(map, [guess, opponent, truth]);
     }
-  }, [guess, mapReady, showLine, truth, visible]);
+  }, [guess, mapReady, opponent, showLine, truth, visible]);
 
   return (
     <div className={cn("relative h-full w-full min-h-0 bg-black", className)}>

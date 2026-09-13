@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   decideFriendRequest,
   escapeIlike,
+  friendPresence,
   isOnline,
   relationFor,
   toPublicUser,
@@ -22,6 +23,14 @@ describe("isOnline", () => {
     expect(isOnline(new Date(now.getTime() - PRESENCE_TTL_MS), now)).toBe(
       false,
     );
+  });
+});
+
+describe("friendPresence", () => {
+  it("treats an online match occupant as busy", () => {
+    expect(friendPresence(false, true)).toBe("offline");
+    expect(friendPresence(true, false)).toBe("online");
+    expect(friendPresence(true, true)).toBe("busy");
   });
 });
 

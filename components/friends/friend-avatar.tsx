@@ -1,3 +1,5 @@
+import { friendPresence } from "@/lib/friends/rules";
+
 export function FriendAvatar({ username }: { username: string }) {
   const initial = (username.trim().slice(0, 1) || "?").toUpperCase();
   return (
@@ -10,13 +12,26 @@ export function FriendAvatar({ username }: { username: string }) {
   );
 }
 
-export function OnlineDot({ online }: { online: boolean }) {
+export function OnlineDot({
+  online,
+  busy = false,
+}: {
+  online: boolean;
+  busy?: boolean;
+}) {
+  const state = friendPresence(online, busy);
   return (
     <span
       className={`inline-block size-2 rounded-full ${
-        online ? "bg-p1" : "bg-muted-foreground/50"
+        state === "online"
+          ? "bg-p1"
+          : state === "busy"
+            ? "bg-amber"
+            : "bg-muted-foreground/50"
       }`}
-      aria-label={online ? "Online" : "Offline"}
+      aria-label={
+        state === "online" ? "Online" : state === "busy" ? "Busy" : "Offline"
+      }
     />
   );
 }

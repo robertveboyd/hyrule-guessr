@@ -139,6 +139,11 @@
   background: #3ec8e0;
 }
 
-.botw-map-pin-dot-truth {
+.botw-map-pin-dot-opponent {
   background: #e0a01a;
+}
+
+.botw-map-pin-dot-truth {
+  background: #e8eef5;
+  border-color: #1a1208;
 }

@@ -5,7 +5,9 @@ import { and, eq, inArray, ne, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { getPgError, PgCode } from "@/lib/db/errors";
 import { friendships, FriendshipsUnique } from "@/lib/db/schema/friends";
+import { matchSeats, matches } from "@/lib/db/schema/matches";
 import { users } from "@/lib/db/schema/users";
+import { stillLive } from "@/lib/match/rules";
 
 import {
   decideFriendRequest,
@@ -87,6 +89,27 @@ export async function listFriends(userId: string): Promise<FriendsListDto> {
         });
   const byId = new Map(others.map((row) => [row.id, row]));
   const now = new Date();
+  const acceptedIds = rows
+    .filter((row) => row.status === "accepted")
+    .map((row) =>
+      row.requesterId === userId ? row.addresseeId : row.requesterId,
+    );
+  const busyIds = new Set<string>();
+  if (acceptedIds.length > 0) {
+    const seatedBusy = await db
+      .select({ userId: matchSeats.userId })
+      .from(matchSeats)
+      .innerJoin(matches, eq(matchSeats.matchId, matches.id))
+      .where(and(inArray(matchSeats.userId, acceptedIds), stillLive()));
+    const hostedBusy = await db
+      .select({ userId: matches.hostUserId })
+      .from(matches)
+      .where(and(inArray(matches.hostUserId, acceptedIds), stillLive()));
+    for (const row of seatedBusy) {
+      if (row.userId) busyIds.add(row.userId);
+    }
+    for (const row of hostedBusy) busyIds.add(row.userId);
+  }
 
   const friends: FriendsListDto["friends"] = [];
   const incoming: FriendsListDto["incoming"] = [];
@@ -102,6 +125,7 @@ export async function listFriends(userId: string): Promise<FriendsListDto> {
       friends.push({
         ...publicUser,
         online: isOnline(other.lastSeenAt, now),
+        busy: busyIds.has(other.id),
       });
     } else if (row.requesterId === userId) {
       outgoing.push(publicUser);
@@ -111,7 +135,10 @@ export async function listFriends(userId: string): Promise<FriendsListDto> {
   }
 
   friends.sort((a, b) => {
-    if (a.online !== b.online) return a.online ? -1 : 1;
+    const rank = (friend: { online: boolean; busy: boolean }) =>
+      friend.online ? (friend.busy ? 1 : 0) : 2;
+    const delta = rank(a) - rank(b);
+    if (delta !== 0) return delta;
     return a.username.localeCompare(b.username);
   });
   incoming.sort((a, b) => a.username.localeCompare(b.username));

@@ -14,6 +14,12 @@ export function isOnline(
   return now.getTime() - lastSeenAt.getTime() < PRESENCE_TTL_MS;
 }
 
+export function friendPresence(online: boolean, busy: boolean) {
+  if (!online) return "offline" as const;
+  if (busy) return "busy" as const;
+  return "online" as const;
+}
+
 export function escapeIlike(query: string): string {
   return query.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
 }

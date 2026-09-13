@@ -25,6 +25,11 @@ const envSchema = z.object({
     emptyToUndefined,
     z.string().min(1).optional(),
   ),
+  MATCH_ROOM_URL: z.preprocess(emptyToUndefined, z.url().optional()),
+  MATCH_ROOM_SECRET: z.preprocess(
+    emptyToUndefined,
+    z.string().min(1).optional(),
+  ),
 });
 
 const env = envSchema.parse(process.env);
@@ -37,5 +42,7 @@ export const config = {
   authUrl: env.AUTH_URL,
   sessionRoomUrl: env.SESSION_ROOM_URL,
   sessionRoomSecret: env.SESSION_ROOM_SECRET,
+  matchRoomUrl: env.MATCH_ROOM_URL,
+  matchRoomSecret: env.MATCH_ROOM_SECRET,
   isProd,
 };

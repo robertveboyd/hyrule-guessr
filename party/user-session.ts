@@ -1,4 +1,4 @@
-import { routePartykitRequest, Server } from "partyserver";
+import { Server } from "partyserver";
 import type { Connection, ConnectionContext } from "partyserver";
 import { z } from "zod";
 
@@ -86,17 +86,3 @@ export class UserSession extends Server {
     return new Response(null, { status: 204 });
   }
 }
-
-export default {
-  async fetch(request: Request, env: Cloudflare.Env) {
-    return (
-      (await routePartykitRequest(request, env, {
-        onBeforeConnect(req) {
-          if (req.headers.get("Origin") !== env.ALLOWED_ORIGIN) {
-            return new Response("Forbidden", { status: 403 });
-          }
-        },
-      })) || new Response("Not Found", { status: 404 })
-    );
-  },
-};

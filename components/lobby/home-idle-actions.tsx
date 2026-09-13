@@ -4,23 +4,30 @@ import Link from "next/link";
 import { Loader2 } from "lucide-react";
 
 import { LobbyActions, lobbyCtaClassName } from "@/components/lobby/lobby-shell";
+import { VersusSplitButton } from "@/components/match/versus-split-button";
 import { PracticeSplitButton } from "@/components/practice/practice-split-button";
 import { Button } from "@/components/ui/button";
+import type { MatchHostRole } from "@/lib/game/match";
 import type { SpRunMode } from "@/lib/game/practice";
 
 export function HomeIdleActions({
   pending,
+  versusDisabled = false,
   onStart,
+  onVersus,
 }: {
   pending: boolean;
+  versusDisabled?: boolean;
   onStart: (mode: SpRunMode) => void;
+  onVersus: (role: MatchHostRole) => void;
 }) {
   return (
     <LobbyActions showMap>
       <PracticeSplitButton pending={pending} onStart={onStart} />
-      <Button className={lobbyCtaClassName} disabled>
-        Versus
-      </Button>
+      <VersusSplitButton
+        pending={pending || versusDisabled}
+        onCreate={onVersus}
+      />
       <Button asChild variant="outline" className={lobbyCtaClassName}>
         <Link href="/friends">Friends</Link>
       </Button>

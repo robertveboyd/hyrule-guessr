@@ -18,18 +18,34 @@ function formatRemaining(ms: number) {
   return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 }
 
+export function useRemainingMs(endsAt: string | null) {
+  const [ms, setMs] = useState(() =>
+    endsAt ? remainingMs(endsAt, Date.now()) : 0,
+  );
+
+  useEffect(() => {
+    if (!endsAt) return;
+    const tick = () => setMs(remainingMs(endsAt, Date.now()));
+    tick();
+    const id = window.setInterval(tick, 250);
+    return () => window.clearInterval(id);
+  }, [endsAt]);
+
+  return endsAt ? ms : 0;
+}
+
 export function RoundTimer({
   endsAt,
   onExpire,
   className,
+  dangerBelowMs = 15_000,
 }: {
   endsAt: string | null;
   onExpire?: () => void;
   className?: string;
+  dangerBelowMs?: number;
 }) {
-  const [ms, setMs] = useState(() =>
-    endsAt ? remainingMs(endsAt, Date.now()) : 0,
-  );
+  const ms = useRemainingMs(endsAt);
   const expiredRef = useRef(false);
   const onExpireRef = useRef(onExpire);
 
@@ -39,29 +55,24 @@ export function RoundTimer({
 
   useEffect(() => {
     expiredRef.current = false;
-    if (!endsAt) return;
-    const tick = () => {
-      const next = remainingMs(endsAt, Date.now());
-      setMs(next);
-      if (next === 0 && !expiredRef.current) {
-        expiredRef.current = true;
-        onExpireRef.current?.();
-      }
-    };
-    const timeout = window.setTimeout(tick, 0);
-    const id = window.setInterval(tick, 250);
-    return () => {
-      window.clearTimeout(timeout);
-      window.clearInterval(id);
-    };
   }, [endsAt]);
+
+  useEffect(() => {
+    if (!endsAt || ms > 0 || expiredRef.current) return;
+    expiredRef.current = true;
+    onExpireRef.current?.();
+  }, [endsAt, ms]);
 
   if (!endsAt) return null;
   return (
     <p
       className={cn(
         "font-heading text-sm",
-        ms === 0 ? "text-danger" : "text-amber",
+        ms > 0 && ms <= dangerBelowMs
+          ? "text-danger"
+          : ms === 0
+            ? "text-danger"
+            : "text-amber",
         className,
       )}
       aria-live="polite"

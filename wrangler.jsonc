@@ -1,16 +1,21 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "hyrule-guessr-session",
-  "main": "party/user-session.ts",
+  "main": "party/index.ts",
   "compatibility_date": "2026-03-15",
   "vars": {
-    "ALLOWED_ORIGIN": "http://localhost:3000"
+    "ALLOWED_ORIGIN": "http://localhost:3000",
+    "APP_URL": "http://localhost:3000"
   },
   "durable_objects": {
     "bindings": [
       {
         "name": "UserSession",
         "class_name": "UserSession"
+      },
+      {
+        "name": "MatchRoom",
+        "class_name": "MatchRoom"
       }
     ]
   },
@@ -18,6 +23,10 @@
     {
       "tag": "v1",
       "new_sqlite_classes": ["UserSession"]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": ["MatchRoom"]
     }
   ]
 }

@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { useFineHover } from "@/components/map/use-fine-hover";
 import { StillFrame } from "@/components/practice/still-frame";
 import { LeaveMenu } from "@/components/practice/leave-menu";
 import { RoundTimer } from "@/components/practice/round-timer";
@@ -12,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { sendToLogin } from "@/lib/auth/send-to-login";
 import { readSessionId } from "@/lib/auth/session-storage";
 import type { GamePoint } from "@/lib/game/crs";
-import { SP_LOCK_IN_GRACE_MS, SP_ROUND_COUNT } from "@/lib/game/practice";
+import { SP_LOCK_IN_GRACE_MS } from "@/lib/game/practice";
 import {
   abandonPracticeAction,
   continuePracticeAction,
@@ -24,7 +25,6 @@ import {
   PRACTICE_UNEXPECTED_MESSAGE,
   practiceErrorMessage,
 } from "@/lib/practice/error-copy";
-import { clearLastPracticeHome, writeLastPracticeHome } from "@/lib/practice/last-home";
 import type { PlayDto } from "@/lib/practice/types";
 
 const GuessMap = dynamic(
@@ -46,18 +46,6 @@ const hudValueClass = "font-heading text-xl leading-tight text-foreground";
 
 function formatHudMeters(meters: number | null) {
   return meters === null ? "—" : `${meters.toLocaleString("en-US")} m`;
-}
-
-function useFineHover() {
-  const [fine, setFine] = useState(false);
-  useEffect(() => {
-    const media = window.matchMedia("(hover: hover) and (pointer: fine)");
-    const sync = () => setFine(media.matches);
-    sync();
-    media.addEventListener("change", sync);
-    return () => media.removeEventListener("change", sync);
-  }, []);
-  return fine;
 }
 
 export function PracticePlay() {
@@ -110,12 +98,10 @@ export function PracticePlay() {
   const fail = useCallback(
     (code: Parameters<typeof practiceErrorMessage>[0]) => {
       if (code === "forbidden") {
-        clearLastPracticeHome();
         sendToLogin();
         return;
       }
       if (code === "no-run") {
-        writeLastPracticeHome({ active: null });
         router.replace("/");
         return;
       }
@@ -240,17 +226,6 @@ export function PracticePlay() {
   }, [applyPlay, fail, runMutation]);
 
   async function leave() {
-    const current = playRef.current;
-    if (current) {
-      writeLastPracticeHome({
-        active: {
-          mode: current.mode,
-          roundIndex:
-            current.phase === "summary" ? SP_ROUND_COUNT : current.roundIndex,
-          phase: current.phase,
-        },
-      });
-    }
     router.push("/");
   }
 
@@ -261,7 +236,6 @@ export function PracticePlay() {
         fail(result.code);
         return;
       }
-      writeLastPracticeHome({ active: null });
       router.push("/");
     });
   }
@@ -273,7 +247,6 @@ export function PracticePlay() {
         fail(result.code);
         return;
       }
-      writeLastPracticeHome({ active: null });
       router.push("/");
     });
   }
@@ -483,7 +456,7 @@ export function PracticePlay() {
               disabled={pending || !pin}
               onClick={() => void lockIn()}
             >
-              {pin ? "Guess" : "Place your pin on the map"}
+              {pin ? "Guess (Space)" : "Place your pin on the map"}
             </Button>
           ) : (
             <>

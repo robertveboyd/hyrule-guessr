@@ -9,6 +9,17 @@ const engine = readFileSync(
   "utf8",
 );
 
+describe("listFriends", () => {
+  it("marks friends busy when they have a live lobby or match", () => {
+    const start = engine.indexOf("export async function listFriends");
+    const end = engine.indexOf("export async function searchUsers");
+    const body = engine.slice(start, end);
+    expect(start).toBeGreaterThan(-1);
+    expect(body).toContain("stillLive");
+    expect(body).toContain("busy: busyIds.has(other.id)");
+  });
+});
+
 describe("searchUsers", () => {
   it("does not select email", () => {
     const start = engine.indexOf("export async function searchUsers");
