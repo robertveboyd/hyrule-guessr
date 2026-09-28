@@ -18,6 +18,7 @@ import {
   seatReconnecting,
 } from "@/lib/match/copy";
 import type { MatchSnapshot } from "@/lib/match/protocol";
+import { mapEnlargeHint } from "@/lib/practice/copy";
 import { cn } from "@/lib/utils";
 
 const GuessMap = dynamic(
@@ -314,6 +315,7 @@ export function MatchPlay({
         onActivate={
           !fineHover && guessing && !expanded ? activateMap : undefined
         }
+        enlargeHint={guessing && !expanded ? mapEnlargeHint(fineHover) : null}
         footer={
           guessing ? (
             <Button

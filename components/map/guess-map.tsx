@@ -15,6 +15,7 @@ export function GuessMap({
   onPointerEnter,
   onPointerLeave,
   onActivate,
+  enlargeHint,
   footer,
   className,
 }: {
@@ -27,6 +28,7 @@ export function GuessMap({
   onPointerEnter?: () => void;
   onPointerLeave?: () => void;
   onActivate?: () => void;
+  enlargeHint?: string | null;
   footer?: ReactNode;
   className?: string;
 }) {
@@ -61,6 +63,11 @@ export function GuessMap({
           showZoom={expanded}
           visible={expanded}
         />
+        {!expanded && enlargeHint ? (
+          <p className="pointer-events-none absolute inset-x-0 top-1.5 z-10 text-center font-heading text-[0.65rem] uppercase tracking-[0.18em] text-amber">
+            {enlargeHint}
+          </p>
+        ) : null}
       </div>
       {footer ? (
         <div className="flex w-full shrink-0 flex-col gap-1.5 bg-hud px-2 py-1.5">

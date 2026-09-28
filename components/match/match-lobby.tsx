@@ -6,7 +6,11 @@ import { ChevronDown } from "lucide-react";
 import { LobbyShell, StatusLine, lobbyCtaClassName } from "@/components/lobby/lobby-shell";
 import { Button } from "@/components/ui/button";
 import { RoundTimer } from "@/components/practice/round-timer";
-import { lobbyHostHint, openSeatInviteHint } from "@/lib/match/copy";
+import {
+  LOBBY_EXPIRY_LABEL,
+  lobbyHostHint,
+  openSeatInviteHint,
+} from "@/lib/match/copy";
 import { matchErrorMessage } from "@/lib/match/error-copy";
 import type { MatchSnapshot } from "@/lib/match/protocol";
 import type { MatchLobbyDto } from "@/lib/match/types";
@@ -123,6 +127,9 @@ export function MatchLobby({
           ) : null}
           <div className="flex w-16 shrink-0 flex-col items-center justify-center gap-1 px-1">
             <span className="font-heading text-sm text-amber">VS</span>
+            <p className="text-[0.65rem] leading-none uppercase tracking-[0.14em] text-muted-foreground">
+              {LOBBY_EXPIRY_LABEL}
+            </p>
             <RoundTimer
               endsAt={lobby.lobbyExpiresAt}
               dangerBelowMs={60_000}

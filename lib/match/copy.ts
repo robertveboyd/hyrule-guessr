@@ -1,3 +1,5 @@
+export const LOBBY_EXPIRY_LABEL = "Expires";
+
 export function roundVerdict(input: {
   you: "a" | "b" | "observer";
   loser: "a" | "b" | null;

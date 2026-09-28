@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  LOBBY_EXPIRY_LABEL,
   matchEndingAfterReveal,
   matchRecap,
   playTimerHint,
@@ -9,6 +10,12 @@ import {
   lobbyHostHint,
   openSeatInviteHint,
 } from "./copy";
+
+describe("LOBBY_EXPIRY_LABEL", () => {
+  it("names lobby expiry, not match time", () => {
+    expect(LOBBY_EXPIRY_LABEL).toBe("Expires");
+  });
+});
 
 describe("roundVerdict", () => {
   it("names a tie, a personal win, and an observer winner", () => {

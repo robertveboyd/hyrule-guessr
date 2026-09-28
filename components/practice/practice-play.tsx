@@ -21,6 +21,7 @@ import {
   loadPracticeAction,
   submitPracticeGuessAction,
 } from "@/lib/practice/actions";
+import { mapEnlargeHint, timedMissHint } from "@/lib/practice/copy";
 import {
   PRACTICE_UNEXPECTED_MESSAGE,
   practiceErrorMessage,
@@ -376,6 +377,12 @@ export function PracticePlay() {
   const truthPoint = guessing ? null : play.truth;
   const expanded = !guessing || sticky || (fineHover && hovered);
   const mapInteractive = guessing && (expanded || fineHover);
+  const missHint = guessing
+    ? null
+    : timedMissHint({
+        mode: play.mode,
+        distanceMeters: play.distanceMeters,
+      });
   const mapActionClassName =
     "h-auto min-h-8 w-full whitespace-normal px-2 py-1.5 text-center";
 
@@ -448,6 +455,7 @@ export function PracticePlay() {
         onActivate={
           !fineHover && guessing && !expanded ? activateMap : undefined
         }
+        enlargeHint={guessing && !expanded ? mapEnlargeHint(fineHover) : null}
         footer={
           guessing ? (
             <Button
@@ -460,6 +468,9 @@ export function PracticePlay() {
             </Button>
           ) : (
             <>
+              {missHint ? (
+                <p className="text-center text-xs text-danger">{missHint}</p>
+              ) : null}
               <div className="grid grid-cols-2 divide-x divide-amber/30">
                 <div className="px-2 text-center">
                   <p className={hudKickerClass}>Score</p>
