@@ -13,8 +13,6 @@ import { useMatchHome } from "@/components/match/use-match-home";
 import { Button } from "@/components/ui/button";
 import { sendToLogin } from "@/lib/auth/send-to-login";
 import { readSessionId } from "@/lib/auth/session-storage";
-import type { MatchHostRole } from "@/lib/game/match";
-import type { SpRunMode } from "@/lib/game/practice";
 import { createMatchAction } from "@/lib/match/actions";
 import { MATCH_UNEXPECTED_MESSAGE, matchErrorMessage } from "@/lib/match/error-copy";
 import {
@@ -100,14 +98,14 @@ export function PracticeHome() {
     };
   }, [consumeHome]);
 
-  async function start(mode: SpRunMode) {
+  async function start() {
     if (pendingRef.current) return;
     pendingRef.current = true;
     setPending(true);
     setMessage(null);
     let started = false;
     try {
-      const result = await startPracticeAction(readSessionId(), mode);
+      const result = await startPracticeAction(readSessionId(), "casual");
       if (!result.ok) {
         if (result.code === "forbidden") {
           sendToLogin();
@@ -128,14 +126,14 @@ export function PracticeHome() {
     }
   }
 
-  async function versus(role: MatchHostRole) {
+  async function versus() {
     if (pendingRef.current) return;
     pendingRef.current = true;
     setPending(true);
     setMessage(null);
     let started = false;
     try {
-      const result = await createMatchAction(readSessionId(), role);
+      const result = await createMatchAction(readSessionId(), "player");
       if (!result.ok) {
         if (result.code === "forbidden") {
           sendToLogin();
