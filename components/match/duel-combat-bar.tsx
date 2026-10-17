@@ -38,12 +38,21 @@ function roundDistance(snapshot: MatchSnapshot, key: "a" | "b") {
 export function DuelCombatBar({
   snapshot,
   you,
+  layout = "overlay",
 }: {
   snapshot: MatchSnapshot;
   you: "a" | "b" | "observer";
+  layout?: "overlay" | "band";
 }) {
   return (
-    <div className="pointer-events-none absolute inset-x-3 bottom-3 z-30 grid grid-cols-2 gap-2">
+    <div
+      className={cn(
+        "grid grid-cols-2 gap-2",
+        layout === "overlay"
+          ? "pointer-events-none absolute inset-x-3 bottom-3 z-30"
+          : "relative w-full shrink-0 px-3 pb-3",
+      )}
+    >
       <DuelFighterCard snapshot={snapshot} you={you} side="left" tone="p1" />
       <DuelFighterCard snapshot={snapshot} you={you} side="right" tone="p2" />
     </div>
@@ -94,9 +103,22 @@ function DuelFighterCard({
         </p>
       ) : null}
       <div className="flex items-baseline justify-between gap-2">
-        <p className="truncate font-heading text-sm">
-          {isYou ? "You" : (seat.username ?? (key === "a" ? "A" : "B"))}
-        </p>
+        <div className="flex min-w-0 items-center gap-2">
+          <span
+            className={cn(
+              "flex size-7 shrink-0 items-center justify-center rounded-full border font-heading text-xs",
+              tone === "p1" ? "border-p1/50 text-p1" : "border-p2/50 text-p2",
+            )}
+            aria-hidden
+          >
+            {(seat.username ?? (key === "a" ? "A" : "B"))
+              .slice(0, 1)
+              .toUpperCase()}
+          </span>
+          <p className="truncate font-heading text-sm">
+            {isYou ? "You" : (seat.username ?? (key === "a" ? "A" : "B"))}
+          </p>
+        </div>
         <p
           className={cn(
             "tabular-nums text-sm",

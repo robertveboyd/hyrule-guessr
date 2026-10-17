@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { matchInviteOverlayCopy } from "@/lib/match/copy";
 import type { MatchHomeInviteDto } from "@/lib/match/types";
 
 export function MatchInviteOverlay({
@@ -29,7 +30,7 @@ export function MatchInviteOverlay({
         >
           <p className="font-heading text-lg">{invite.hostUsername}</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Invited you to a match.
+            {matchInviteOverlayCopy(invite.kind)}
           </p>
           <div className="mt-3 flex flex-col gap-2">
             <Button

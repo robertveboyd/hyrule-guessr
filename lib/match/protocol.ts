@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { GamePoint } from "@/lib/game/crs";
-import type { MatchSeatRole } from "@/lib/game/match";
+import type { MatchJoinRole, MatchSeatRole } from "@/lib/game/match";
 
 export const matchStillSchema = z.object({
   id: z.string(),
@@ -20,6 +20,15 @@ export const matchSeatPublicSchema = z.object({
   multiplier: z.number().nullable(),
   locked: z.boolean(),
 });
+
+export const matchViewportSchema = z.object({
+  x: z.number().finite(),
+  z: z.number().finite(),
+  zoom: z.number().finite().optional(),
+  pin: z.object({ x: z.number().finite(), z: z.number().finite() }).nullable().optional(),
+});
+
+export type MatchViewport = z.infer<typeof matchViewportSchema>;
 
 export const matchRevealSchema = z.object({
   guessA: z.object({ x: z.number(), z: z.number() }).nullable(),
@@ -55,12 +64,14 @@ export const matchSnapshotSchema = z.object({
   playerA: matchSeatPublicSchema,
   playerB: matchSeatPublicSchema,
   hostObserver: matchSeatPublicSchema,
-  youRole: z.enum(["player_a", "player_b", "host_observer"]),
+  youRole: z.enum(["player_a", "player_b", "host_observer", "spectator"]),
   youLocked: z.boolean(),
   youCanLock: z.boolean(),
   opponentLocked: z.boolean(),
   reveal: matchRevealSchema.nullable(),
   winnerUserId: z.string().nullable(),
+  viewA: matchViewportSchema.nullable().optional(),
+  viewB: matchViewportSchema.nullable().optional(),
 });
 
 export type MatchSnapshot = z.infer<typeof matchSnapshotSchema>;
@@ -76,6 +87,10 @@ export const matchInboundSchema = z.discriminatedUnion("type", [
     x: z.number().finite(),
     z: z.number().finite(),
     zoom: z.number().finite().optional(),
+    pin: z
+      .object({ x: z.number().finite(), z: z.number().finite() })
+      .nullable()
+      .optional(),
   }),
 ]);
 
@@ -122,3 +137,4 @@ export type MatchCompletePayload = {
 };
 
 export type MatchSeatRolePublic = MatchSeatRole;
+export type MatchJoinRolePublic = MatchJoinRole;

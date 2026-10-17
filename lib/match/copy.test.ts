@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   LOBBY_EXPIRY_LABEL,
   matchEndingAfterReveal,
+  matchInviteOverlayCopy,
   matchRecap,
   playTimerHint,
   roundVerdict,
@@ -171,6 +172,15 @@ describe("openSeatInviteHint", () => {
         onlineBusy: true,
       }),
     ).toBeNull();
+  });
+});
+
+describe("matchInviteOverlayCopy", () => {
+  it("distinguishes watch invites from play invites", () => {
+    expect(matchInviteOverlayCopy("player")).toBe("Invited you to a match.");
+    expect(matchInviteOverlayCopy("spectator")).toBe(
+      "Invited you to watch a match.",
+    );
   });
 });
 

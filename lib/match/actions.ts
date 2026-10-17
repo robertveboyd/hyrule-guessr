@@ -14,6 +14,7 @@ import {
   getMatchSeat,
   hostRemovePlayer,
   invitePlayer,
+  inviteSpectator,
   leaveMatch,
   startMatch,
 } from "@/lib/match/engine";
@@ -79,6 +80,19 @@ export async function invitePlayerAction(
   if (!id || !friend) return { ok: false, code: "not-found" };
   return withExclusive(clientSessionId, (userId) =>
     invitePlayer(userId, id, friend),
+  );
+}
+
+export async function inviteSpectatorAction(
+  clientSessionId: string | null,
+  matchId: string,
+  friendId: string,
+): Promise<MatchActionResult<MatchLobbyDto>> {
+  const id = parseId(matchId);
+  const friend = parseId(friendId);
+  if (!id || !friend) return { ok: false, code: "not-found" };
+  return withExclusive(clientSessionId, (userId) =>
+    inviteSpectator(userId, id, friend),
   );
 }
 

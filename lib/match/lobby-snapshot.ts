@@ -78,6 +78,7 @@ export function applyMatchSnapshotToLobby(
     status,
     seats,
     invites: lobby.invites.map((invite) => {
+      if (invite.kind === "spectator") return invite;
       if (seatedIds.has(invite.userId)) {
         return invite.status === "pending"
           ? { ...invite, status: "accepted" as const }

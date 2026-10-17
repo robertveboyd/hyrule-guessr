@@ -49,7 +49,7 @@ describe("toLobbyDto", () => {
 describe("invitePlayer", () => {
   it("rejects self, non-friends, and busy players", () => {
     const start = engine.indexOf("export async function invitePlayer");
-    const end = engine.indexOf("export async function acceptInvite");
+    const end = engine.indexOf("export async function inviteSpectator");
     const body = engine.slice(start, end);
     expect(start).toBeGreaterThan(-1);
     expect(body).toContain("cannot-invite-self");
@@ -59,6 +59,22 @@ describe("invitePlayer", () => {
     expect(body).toContain("hasLiveMatch");
     expect(body).toContain("onConflictDoUpdate");
     expect(body).toContain("setWhere");
+  });
+});
+
+describe("inviteSpectator", () => {
+  it("allows lobby and live, refuses ranked and seated players", () => {
+    const start = engine.indexOf("export async function inviteSpectator");
+    const end = engine.indexOf("export async function acceptInvite");
+    const body = engine.slice(start, end);
+    expect(start).toBeGreaterThan(-1);
+    expect(body).toContain("cannot-invite-self");
+    expect(body).toContain("not-friends");
+    expect(body).toContain("player-busy");
+    expect(body).toContain('kind: "spectator"');
+    expect(body).toContain('match.status !== "live"');
+    expect(body).toContain('match.mode === "ranked"');
+    expect(body).toContain("hasLiveMatch");
   });
 });
 
@@ -72,6 +88,10 @@ describe("acceptInvite", () => {
     expect(body).toContain("isNull(matchSeats.userId)");
     expect(body).toContain('.for("update")');
     expect(body).toContain("notifyMatchRoomRetry");
+    expect(body).toContain('invite.kind === "spectator"');
+    expect(body.indexOf('invite.kind === "spectator"')).toBeLessThan(
+      body.indexOf("isNull(matchSeats.userId)"),
+    );
   });
 });
 
@@ -131,6 +151,23 @@ describe("getMatchHome", () => {
     expect(start).toBeGreaterThan(-1);
     expect(body).toContain("gt(matches.lobbyExpiresAt");
     expect(body).toContain("incomingInvites: rejoin ? [] : incoming");
+    expect(body).toContain('eq(matchInvites.kind, "spectator")');
+    expect(body).toContain("kind: matchInvites.kind");
+  });
+});
+
+describe("getMatchSeat", () => {
+  it("returns a spectator join for an accepted watcher who is not seated", () => {
+    const start = engine.indexOf("export async function getMatchSeat");
+    const end = engine.indexOf("export async function startMatch");
+    const body = engine.slice(start, end);
+    expect(start).toBeGreaterThan(-1);
+    expect(body).toContain('role: "spectator"');
+    expect(body).toContain('kind === "spectator"');
+    expect(body).toContain('match.mode === "ranked"');
+    expect(body.indexOf("const seat = match.seats.find")).toBeLessThan(
+      body.indexOf('role: "spectator"'),
+    );
   });
 });
 

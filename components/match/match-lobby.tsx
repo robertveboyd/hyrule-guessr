@@ -30,6 +30,7 @@ export function MatchLobby({
   unavailable,
   message,
   onInvite,
+  onInviteWatch,
   onAccept,
   onDecline,
   onStart,
@@ -44,6 +45,7 @@ export function MatchLobby({
   unavailable: boolean;
   message: string | null;
   onInvite: (friendId: string) => void;
+  onInviteWatch: (friendId: string) => void;
   onAccept: () => void;
   onDecline: () => void;
   onStart: () => void;
@@ -68,7 +70,15 @@ export function MatchLobby({
   );
   const playerSeats = lobby.seats.filter((seat) => seat.role !== "host_observer");
   const pendingInvites = lobby.invites.filter(
-    (invite) => invite.status === "pending",
+    (invite) => invite.kind === "player" && invite.status === "pending",
+  );
+  const watchers = lobby.invites.filter(
+    (invite) =>
+      invite.kind === "spectator" &&
+      (invite.status === "pending" || invite.status === "accepted"),
+  );
+  const watchInviteable = inviteable.filter(
+    (friend) => friend.online && !friend.busy,
   );
   let pendingCursor = 0;
   const cards: SeatView[] = playerSeats.map((seat) => {
@@ -153,6 +163,61 @@ export function MatchLobby({
             />
           ) : null}
         </div>
+
+        {isHost && !invitee ? (
+          <div className="flex w-full max-w-md flex-col items-center gap-2 rounded-md border border-amber/30 bg-hud px-4 py-3">
+            <p className="font-heading text-sm">Watch</p>
+            {watchInviteable.length > 0 ? (
+              <InviteMenu
+                friends={watchInviteable}
+                pending={pending}
+                tone="p1"
+                label="Invite to watch"
+                onInvite={onInviteWatch}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {openSeatInviteHint({
+                  hasFriends: inviteable.length > 0,
+                  freeOnline: false,
+                  onlineBusy: inviteable.some(
+                    (friend) => friend.online && friend.busy,
+                  ),
+                }) ?? "No friends online"}
+              </p>
+            )}
+            {watchers.length > 0 ? (
+              <ul className="w-full text-center text-sm text-muted-foreground">
+                {watchers.map((watcher) => (
+                  <li key={watcher.userId} className="flex items-center justify-center gap-2">
+                    <span className="truncate">
+                      {watcher.username}
+                      {watcher.status === "pending" ? " (invited)" : ""}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      className="text-danger"
+                      disabled={pending}
+                      onClick={() => onRemove(watcher.userId)}
+                    >
+                      {watcher.status === "pending" ? "Cancel" : "Remove"}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : watchers.length > 0 || lobby.youRole === "spectator" ? (
+          <p className="text-sm text-muted-foreground">
+            {lobby.youRole === "spectator"
+              ? "You'll watch this match"
+              : watchers.length === 1
+                ? `${watchers[0]?.username} is watching`
+                : `${watchers.length} friends watching`}
+          </p>
+        ) : null}
 
         <div className="flex flex-col items-center gap-2">
           <StatusLine tone={message || unavailable ? "danger" : "muted"}>
@@ -358,15 +423,17 @@ function SeatCard({
   );
 }
 
-function InviteMenu({
+export function InviteMenu({
   friends,
   pending,
   tone,
+  label = "Invite",
   onInvite,
 }: {
   friends: MatchLobbyDto["friends"];
   pending: boolean;
   tone: "p1" | "p2";
+  label?: string;
   onInvite: (friendId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -419,7 +486,7 @@ function InviteMenu({
         aria-label="Invite an online friend"
         onClick={() => setOpen((value) => !value)}
       >
-        Invite
+        {label}
         <ChevronDown className={cn("size-3.5", open && "rotate-180")} />
       </button>
       {open ? (

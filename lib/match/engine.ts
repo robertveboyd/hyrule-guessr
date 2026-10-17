@@ -15,7 +15,7 @@ import {
 import { stills } from "@/lib/db/schema/stills";
 import { users } from "@/lib/db/schema/users";
 import { isOnline } from "@/lib/friends/rules";
-import { MATCH_LOBBY_TTL_MS, MATCH_MAX_ROUNDS, MATCH_MIN_STILLS, MATCH_START_HEALTH, type MatchHostRole, type MatchSeatRole } from "@/lib/game/match";
+import { MATCH_LOBBY_TTL_MS, MATCH_MAX_ROUNDS, MATCH_MIN_STILLS, MATCH_START_HEALTH, type MatchHostRole, type MatchJoinRole, type MatchSeatRole } from "@/lib/game/match";
 import { MatchRoomNotifyError, matchRoomConfigured, notifyMatchRoom } from "@/lib/match/notify";
 import type { MatchCompletePayload } from "@/lib/match/protocol";
 import { stillLive } from "@/lib/match/rules";
@@ -43,7 +43,8 @@ export class MatchEngineError extends Error {
       | "players-not-connected"
       | "catalog-too-small"
       | "not-seated"
-      | "match-over",
+      | "match-over"
+      | "ranked",
   ) {
     super(code);
     this.name = "MatchEngineError";
@@ -188,13 +189,23 @@ function youRole(
   match: {
     hostUserId: string;
     seats: { role: MatchSeatRole; userId: string | null }[];
-    invites: { userId: string; status: string }[];
+    invites: { userId: string; status: string; kind: string }[];
   },
 ): MatchLobbyDto["youRole"] {
   const seated = match.seats.find((seat) => seat.userId === userId);
   if (seated) return seated.role;
   if (match.invites.some((invite) => invite.userId === userId && invite.status === "pending")) {
     return "invitee";
+  }
+  if (
+    match.invites.some(
+      (invite) =>
+        invite.userId === userId &&
+        invite.kind === "spectator" &&
+        invite.status === "accepted",
+    )
+  ) {
+    return "spectator";
   }
   return "none";
 }
@@ -268,6 +279,7 @@ async function toLobbyDto(userId: string, matchId: string): Promise<MatchLobbyDt
   const invites: MatchLobbyInviteDto[] = match.invites.map((invite) => ({
     userId: invite.userId,
     username: nameById.get(invite.userId) ?? "unknown",
+    kind: invite.kind,
     status: invite.status,
   }));
 
@@ -363,6 +375,7 @@ export async function createMatch(userId: string, hostRole: MatchHostRole) {
   try {
     await notifyMatchRoom(created.id, {
       type: "initLobby",
+      mode: created.mode,
       expiresAt: lobbyExpiresAt.getTime(),
       hostUserId: userId,
       hostUsername: hostName,
@@ -455,13 +468,85 @@ export async function invitePlayer(
   return toLobbyDto(userId, matchId);
 }
 
+export async function inviteSpectator(
+  userId: string,
+  matchId: string,
+  friendId: string,
+) {
+  if (userId === friendId) throw new MatchEngineError("cannot-invite-self");
+  const match = await expireIfNeeded(matchId);
+  if (match.status !== "lobby" && match.status !== "live") {
+    throw new MatchEngineError("not-lobby");
+  }
+  if (match.mode === "ranked") throw new MatchEngineError("ranked");
+  if (match.hostUserId !== userId) throw new MatchEngineError("not-host");
+  if (!(await areFriends(userId, friendId))) {
+    throw new MatchEngineError("not-friends");
+  }
+  if (await hasLiveMatch(friendId)) {
+    throw new MatchEngineError("player-busy");
+  }
+  if (match.seats.some((seat) => seat.userId === friendId)) {
+    throw new MatchEngineError("already-in-match");
+  }
+
+  const existing = match.invites.find((invite) => invite.userId === friendId);
+  if (
+    existing &&
+    existing.kind === "spectator" &&
+    (existing.status === "pending" || existing.status === "accepted")
+  ) {
+    return toLobbyDto(userId, matchId);
+  }
+  if (existing && existing.status !== "declined") {
+    throw new MatchEngineError("already-in-match");
+  }
+
+  try {
+    await db
+      .insert(matchInvites)
+      .values({
+        matchId,
+        userId: friendId,
+        kind: "spectator",
+        status: "pending",
+      })
+      .onConflictDoUpdate({
+        target: [matchInvites.matchId, matchInvites.userId],
+        set: { kind: "spectator", status: "pending" },
+        setWhere: eq(matchInvites.status, "declined"),
+      });
+  } catch {
+    throw new MatchEngineError("unavailable");
+  }
+
+  return toLobbyDto(userId, matchId);
+}
+
 export async function acceptInvite(userId: string, matchId: string) {
   const match = await expireIfNeeded(matchId);
-  if (match.status !== "lobby") throw new MatchEngineError("not-lobby");
   const invite = match.invites.find(
     (row) => row.userId === userId && row.status === "pending",
   );
   if (!invite) throw new MatchEngineError("not-pending");
+  if (invite.kind === "spectator") {
+    if (match.status !== "lobby" && match.status !== "live") {
+      throw new MatchEngineError("not-pending");
+    }
+    if (match.mode === "ranked") throw new MatchEngineError("ranked");
+    if (await hasLiveMatch(userId, matchId)) {
+      throw new MatchEngineError("player-busy");
+    }
+    if (match.seats.some((seat) => seat.userId === userId)) {
+      throw new MatchEngineError("already-in-match");
+    }
+    await db
+      .update(matchInvites)
+      .set({ status: "accepted" })
+      .where(eq(matchInvites.id, invite.id));
+    return toLobbyDto(userId, matchId);
+  }
+  if (match.status !== "lobby") throw new MatchEngineError("not-lobby");
   if (await hasLiveMatch(userId, matchId)) {
     throw new MatchEngineError("player-busy");
   }
@@ -604,7 +689,19 @@ export async function leaveMatch(userId: string, matchId: string) {
     return getMatchHome(userId);
   }
   const seat = match.seats.find((row) => row.userId === userId);
-  if (!seat) throw new MatchEngineError("not-seated");
+  if (!seat) {
+    const invite = match.invites.find(
+      (row) =>
+        row.userId === userId &&
+        (row.status === "pending" || row.status === "accepted"),
+    );
+    if (!invite) throw new MatchEngineError("not-seated");
+    await db
+      .update(matchInvites)
+      .set({ status: "declined" })
+      .where(eq(matchInvites.id, invite.id));
+    return getMatchHome(userId);
+  }
   await db.transaction(async (tx) => {
     const [row] = await tx
       .select({ status: matches.status })
@@ -677,10 +774,43 @@ export async function getMatchHome(userId: string): Promise<MatchHomeDto> {
     }
   }
 
+  const watching = await db
+    .select({
+      matchId: matches.id,
+      status: matches.status,
+      lobbyExpiresAt: matches.lobbyExpiresAt,
+    })
+    .from(matchInvites)
+    .innerJoin(matches, eq(matchInvites.matchId, matches.id))
+    .where(
+      and(
+        eq(matchInvites.userId, userId),
+        eq(matchInvites.kind, "spectator"),
+        eq(matchInvites.status, "accepted"),
+        inArray(matches.status, [...LIVE]),
+      ),
+    )
+    .limit(1);
+  const watchingRow = watching[0];
+  if (!rejoin && watchingRow) {
+    if (
+      watchingRow.status === "lobby" &&
+      watchingRow.lobbyExpiresAt.getTime() <= Date.now()
+    ) {
+      await cancelMatchInternal(watchingRow.matchId);
+    } else {
+      rejoin = {
+        matchId: watchingRow.matchId,
+        status: watchingRow.status as "lobby" | "live",
+      };
+    }
+  }
+
   const incoming = await db
     .select({
       matchId: matchInvites.matchId,
       hostUsername: users.username,
+      kind: matchInvites.kind,
     })
     .from(matchInvites)
     .innerJoin(matches, eq(matchInvites.matchId, matches.id))
@@ -689,8 +819,18 @@ export async function getMatchHome(userId: string): Promise<MatchHomeDto> {
       and(
         eq(matchInvites.userId, userId),
         eq(matchInvites.status, "pending"),
-        eq(matches.status, "lobby"),
-        gt(matches.lobbyExpiresAt, new Date()),
+        inArray(matches.status, [...LIVE]),
+        or(
+          and(
+            eq(matchInvites.kind, "player"),
+            eq(matches.status, "lobby"),
+            gt(matches.lobbyExpiresAt, new Date()),
+          ),
+          and(
+            eq(matchInvites.kind, "spectator"),
+            or(eq(matches.status, "live"), gt(matches.lobbyExpiresAt, new Date())),
+          ),
+        ),
       ),
     );
 
@@ -700,7 +840,7 @@ export async function getMatchHome(userId: string): Promise<MatchHomeDto> {
 export async function getMatchSeat(
   userId: string,
   matchId: string,
-): Promise<{ role: MatchSeatRole; status: string } | null> {
+): Promise<{ role: MatchJoinRole; status: string } | null> {
   let match;
   try {
     match = await expireIfNeeded(matchId);
@@ -717,8 +857,16 @@ export async function getMatchSeat(
     return null;
   }
   const seat = match.seats.find((row) => row.userId === userId);
-  if (!seat) return null;
-  return { role: seat.role, status: match.status };
+  if (seat) return { role: seat.role, status: match.status };
+  if (match.mode === "ranked") return null;
+  const watching = match.invites.find(
+    (row) =>
+      row.userId === userId &&
+      row.kind === "spectator" &&
+      row.status === "accepted",
+  );
+  if (!watching) return null;
+  return { role: "spectator", status: match.status };
 }
 
 export async function startMatch(userId: string, matchId: string) {

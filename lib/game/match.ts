@@ -9,6 +9,8 @@ export const MATCH_LOCK_IN_GRACE_MS = 1_000;
 export const MATCH_RECONNECT_MS = 60_000;
 export const MATCH_BETWEEN_ROUNDS_MS = 5_000;
 export const MATCH_LOBBY_TTL_MS = 15 * 60 * 1000;
+export const MATCH_SPECTATOR_CAP = 20;
+export const MATCH_MAP_MOVED_MIN_MS = 100;
 
 export const MATCH_HOST_ROLES = ["player", "observer"] as const;
 export type MatchHostRole = (typeof MATCH_HOST_ROLES)[number];
@@ -28,21 +30,57 @@ export function isMatchSeatRole(value: unknown): value is MatchSeatRole {
   return MATCH_SEAT_ROLES.includes(value as MatchSeatRole);
 }
 
+export const MATCH_JOIN_ROLES = [
+  "player_a",
+  "player_b",
+  "host_observer",
+  "spectator",
+] as const;
+export type MatchJoinRole = (typeof MATCH_JOIN_ROLES)[number];
+
+export function isMatchJoinRole(value: unknown): value is MatchJoinRole {
+  return MATCH_JOIN_ROLES.includes(value as MatchJoinRole);
+}
+
 export const MATCH_SOCKET_ROLES = [
   "playerA",
   "playerB",
   "hostObserver",
+  "spectator",
 ] as const;
 export type MatchSocketRole = (typeof MATCH_SOCKET_ROLES)[number];
 
-export function seatRoleToSocketRole(role: MatchSeatRole): MatchSocketRole {
+export function joinRoleToSocketRole(role: MatchJoinRole): MatchSocketRole {
   if (role === "player_a") return "playerA";
   if (role === "player_b") return "playerB";
-  return "hostObserver";
+  if (role === "host_observer") return "hostObserver";
+  return "spectator";
 }
 
-export function socketRoleToSeatRole(role: MatchSocketRole): MatchSeatRole {
+export function seatRoleToSocketRole(role: MatchSeatRole): MatchSocketRole {
+  return joinRoleToSocketRole(role);
+}
+
+export function socketRoleToSeatRole(
+  role: Exclude<MatchSocketRole, "spectator">,
+): MatchSeatRole {
   if (role === "playerA") return "player_a";
   if (role === "playerB") return "player_b";
   return "host_observer";
+}
+
+export function joinRoleSeesViewports(role: MatchJoinRole): boolean {
+  return role === "spectator" || role === "host_observer";
+}
+
+export function rankedRejectsSpectator(mode: string, role: string): boolean {
+  return mode === "ranked" && role === "spectator";
+}
+
+export function spectatorSlotsOpen(
+  connected: number,
+  replacingSelf: boolean,
+): boolean {
+  if (replacingSelf) return true;
+  return connected < MATCH_SPECTATOR_CAP;
 }

@@ -16,6 +16,7 @@ import {
   getMatchLobbyAction,
   hostRemovePlayerAction,
   invitePlayerAction,
+  inviteSpectatorAction,
   leaveMatchAction,
   startMatchAction,
 } from "@/lib/match/actions";
@@ -206,6 +207,27 @@ export function MatchPage({
     }
   }
 
+  async function inviteWatch(friendId: string) {
+    setPending(true);
+    setMessage(null);
+    try {
+      const result = await inviteSpectatorAction(
+        readSessionId(),
+        matchId,
+        friendId,
+      );
+      if (!result.ok) {
+        fail(result.code);
+        return;
+      }
+      commitLobby(result.data);
+    } catch {
+      setMessage(MATCH_UNEXPECTED_MESSAGE);
+    } finally {
+      setPending(false);
+    }
+  }
+
   async function accept() {
     setPending(true);
     setMessage(null);
@@ -300,13 +322,37 @@ export function MatchPage({
     snapshot.phase !== "lobby" &&
     snapshot.phase !== "cancelled";
 
-  if (playing && snapshot) {
+  const watchFriends = (() => {
+    const seated = new Set(
+      (lobby?.seats ?? [])
+        .map((seat) => seat.userId)
+        .filter((id): id is string => Boolean(id)),
+    );
+    const invited = new Set(
+      (lobby?.invites ?? [])
+        .filter(
+          (invite) =>
+            invite.status === "pending" || invite.status === "accepted",
+        )
+        .map((invite) => invite.userId),
+    );
+    return (lobby?.friends ?? []).filter(
+      (friend) => !seated.has(friend.id) && !invited.has(friend.id),
+    );
+  })();
+
+  if (playing && snapshot && lobby?.youRole !== "invitee") {
     return (
       <MatchPlay
         snapshot={snapshot}
         userId={userId}
         unavailable={unavailable}
+        friends={watchFriends}
+        pending={pending}
+        isHost={lobby?.hostUserId === userId}
         onLockIn={(point) => sendRef.current("lockIn", point)}
+        onMapMoved={(view) => sendRef.current("mapMoved", view)}
+        onInviteWatch={(friendId) => void inviteWatch(friendId)}
         onHome={() => router.push("/")}
         onRetry={retryRoom}
       />
@@ -341,7 +387,7 @@ export function MatchPage({
     );
   }
 
-  if (lobby.status === "live") {
+  if (lobby.status === "live" && lobby.youRole !== "invitee") {
     return (
       <LobbyShell title="Versus">
         <StatusLine tone={unavailable ? "danger" : "muted"}>
@@ -376,6 +422,7 @@ export function MatchPage({
       unavailable={unavailable}
       message={message}
       onInvite={(friendId) => void invite(friendId)}
+      onInviteWatch={(friendId) => void inviteWatch(friendId)}
       onAccept={() => void accept()}
       onDecline={() => void decline()}
       onStart={() => void start()}

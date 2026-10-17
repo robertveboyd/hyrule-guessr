@@ -1,6 +1,6 @@
 "use client";
 
-import { BotwLeaflet } from "@/components/map/botw-leaflet";
+import { BotwLeaflet, type MapViewChange } from "@/components/map/botw-leaflet";
 import { cn } from "@/lib/utils";
 import type { GamePoint } from "@/lib/game/crs";
 import type { ReactNode } from "react";
@@ -12,6 +12,7 @@ export function GuessMap({
   interactive,
   expanded,
   onGuess,
+  onViewChange,
   onPointerEnter,
   onPointerLeave,
   onActivate,
@@ -25,6 +26,7 @@ export function GuessMap({
   interactive: boolean;
   expanded: boolean;
   onGuess: (point: GamePoint) => void;
+  onViewChange?: (view: MapViewChange) => void;
   onPointerEnter?: () => void;
   onPointerLeave?: () => void;
   onActivate?: () => void;
@@ -59,6 +61,7 @@ export function GuessMap({
           guessKind="guess"
           interactive={interactive}
           onGuess={onGuess}
+          onViewChange={onViewChange}
           showLine={Boolean(truth)}
           showZoom={expanded}
           visible={expanded}

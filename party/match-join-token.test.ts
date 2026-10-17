@@ -43,4 +43,10 @@ describe("match join token", () => {
     expect(await verifyMatchJoinToken(secret, token, expMs + 1000)).toBeNull();
     expect(await verifyMatchJoinToken("other-secret", token)).toBeNull();
   });
+
+  it("round-trips a spectator join role", async () => {
+    const token = await mintMatchJoinToken(secret, userId, matchId, "spectator");
+    const claims = await verifyMatchJoinToken(secret, token);
+    expect(claims?.role).toBe("spectator");
+  });
 });

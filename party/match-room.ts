@@ -8,17 +8,24 @@ import {
   MATCH_BETWEEN_ROUNDS_MS,
   MATCH_GRACE_MS,
   MATCH_LOCK_IN_GRACE_MS,
+  MATCH_MAP_MOVED_MIN_MS,
   MATCH_MAX_ROUNDS,
   MATCH_RECONNECT_MS,
   MATCH_ROUND_MS,
   MATCH_START_HEALTH,
   MATCH_START_MULTIPLIER,
-  seatRoleToSocketRole,
+  isMatchSeatRole,
+  joinRoleSeesViewports,
+  joinRoleToSocketRole,
+  rankedRejectsSpectator,
+  spectatorSlotsOpen,
+  type MatchJoinRole,
   type MatchSeatRole,
 } from "../lib/game/match";
 import { scoreGuess } from "../lib/game/score";
 import {
   MATCH_ROOM_CLOSE_REPLACED,
+  MATCH_ROOM_CLOSE_SPECTATORS_FULL,
   MATCH_ROOM_CLOSE_UNAUTHORIZED,
 } from "../lib/match/party";
 import {
@@ -26,11 +33,13 @@ import {
   parseMatchInbound,
   type MatchCompletePayload,
   type MatchStill,
+  type MatchViewport,
 } from "../lib/match/protocol";
 import { secretsEqual } from "./join-token";
 import { verifyMatchJoinToken } from "./match-join-token";
 
 const STATE_KEY = "matchState";
+const VIEWPORTS_KEY = "matchViewports";
 
 type SeatState = {
   userId: string | null;
@@ -76,6 +85,7 @@ type MatchState = {
     | "betweenRounds"
     | "over"
     | "cancelled";
+  mode: "private" | "ranked";
   expiresAt: number | null;
   hostUserId: string;
   hostUsername: string | null;
@@ -92,10 +102,31 @@ type MatchState = {
   persistFailed: boolean;
 };
 
-type ConnState = { userId: string; role: MatchSeatRole };
+type ViewportState = {
+  viewA: MatchViewport | null;
+  viewB: MatchViewport | null;
+  viewASentAt: number;
+  viewBSentAt: number;
+};
+
+function emptyViewports(): ViewportState {
+  return { viewA: null, viewB: null, viewASentAt: 0, viewBSentAt: 0 };
+}
+
+function samePin(
+  left: { x: number; z: number } | null | undefined,
+  right: { x: number; z: number } | null | undefined,
+) {
+  if (!left && !right) return true;
+  if (!left || !right) return false;
+  return left.x === right.x && left.z === right.z;
+}
+
+type ConnState = { userId: string; role: MatchJoinRole };
 
 const initLobbySchema = z.object({
   type: z.literal("initLobby"),
+  mode: z.enum(["private", "ranked"]).optional(),
   expiresAt: z.number(),
   hostUserId: z.string(),
   hostUsername: z.string().nullable(),
@@ -206,6 +237,46 @@ export class MatchRoom extends Server {
       return;
     }
 
+    if (rankedRejectsSpectator(state.mode, claims.role)) {
+      connection.close(MATCH_ROOM_CLOSE_UNAUTHORIZED, "unauthorized");
+      return;
+    }
+
+    if (claims.role === "spectator") {
+      if (
+        state.playerA.userId === claims.userId ||
+        state.playerB.userId === claims.userId
+      ) {
+        connection.close(MATCH_ROOM_CLOSE_UNAUTHORIZED, "unauthorized");
+        return;
+      }
+      let replacingSelf = false;
+      let others = 0;
+      for (const existing of this.getConnections<ConnState>()) {
+        if (existing.id === connection.id) continue;
+        if (existing.state?.userId === claims.userId) replacingSelf = true;
+        else if (existing.state?.role === "spectator") others += 1;
+      }
+      if (!spectatorSlotsOpen(others, replacingSelf)) {
+        connection.close(MATCH_ROOM_CLOSE_SPECTATORS_FULL, "spectators-full");
+        return;
+      }
+      for (const existing of this.getConnections<ConnState>()) {
+        if (existing.id === connection.id) continue;
+        if (existing.state?.userId === claims.userId) {
+          existing.close(MATCH_ROOM_CLOSE_REPLACED, "replaced");
+        }
+      }
+      connection.setState({ userId: claims.userId, role: "spectator" });
+      await this.sendSnapshot(connection, state, "spectator");
+      return;
+    }
+
+    if (!isMatchSeatRole(claims.role)) {
+      connection.close(MATCH_ROOM_CLOSE_UNAUTHORIZED, "unauthorized");
+      return;
+    }
+
     const seat = this.seatByRole(state, claims.role);
     if (seat.userId && seat.userId !== claims.userId) {
       connection.close(MATCH_ROOM_CLOSE_UNAUTHORIZED, "unauthorized");
@@ -240,24 +311,28 @@ export class MatchRoom extends Server {
     if (state.phase === "playing" || state.phase === "grace") {
       await this.armRoundAlarm(state);
     }
-    connection.send(this.snapshotFor(state, claims.role));
+    await this.sendSnapshot(connection, state, claims.role);
     await this.broadcastSnapshots(state);
   }
 
   getConnectionTags(connection: Connection) {
     const role = (connection.state as ConnState | null)?.role;
-    return role ? [seatRoleToSocketRole(role)] : [];
+    return role ? [joinRoleToSocketRole(role)] : [];
   }
 
   async onMessage(connection: Connection, message: WSMessage) {
     if (typeof message !== "string") return;
     const inbound = parseMatchInbound(message);
     if (!inbound) return;
-    if (inbound.type === "mapMoved") return;
 
     const conn = connection.state as ConnState | null;
     if (!conn) return;
     if (conn.role !== "player_a" && conn.role !== "player_b") return;
+
+    if (inbound.type === "mapMoved") {
+      await this.applyMapMoved(conn.role, inbound);
+      return;
+    }
 
     const state = await this.loadState();
     if (!state) return;
@@ -272,6 +347,7 @@ export class MatchRoom extends Server {
     seat.guess = point;
     seat.locked = true;
     this.clearDisconnect(state, conn.role);
+    await this.stampViewportPin(conn.role, point);
 
     const both = state.playerA.locked && state.playerB.locked;
     if (both) {
@@ -335,7 +411,8 @@ export class MatchRoom extends Server {
     }
 
     if (state.phase === "playing" || state.phase === "grace") {
-      this.applyDisconnectTimeouts(state);
+      const views = await this.loadViewports();
+      this.applyDisconnectTimeouts(state, views);
       if (state.playerA.locked && state.playerB.locked) {
         await this.resolveRound(state);
         return;
@@ -354,12 +431,8 @@ export class MatchRoom extends Server {
         await this.broadcastSnapshots(state);
         return;
       }
-      for (const seat of [state.playerA, state.playerB]) {
-        if (!seat.locked) {
-          seat.locked = true;
-          seat.guess = null;
-        }
-      }
+      this.lockWithUncommittedPin(state.playerA, views.viewA?.pin);
+      this.lockWithUncommittedPin(state.playerB, views.viewB?.pin);
       await this.resolveRound(state);
       return;
     }
@@ -438,6 +511,7 @@ export class MatchRoom extends Server {
       }
       const state: MatchState = {
         phase: "lobby",
+        mode: body.mode ?? "private",
         expiresAt: body.expiresAt,
         hostUserId: body.hostUserId,
         hostUsername: body.hostUsername,
@@ -459,6 +533,7 @@ export class MatchRoom extends Server {
         persistFailed: false,
       };
       await this.saveState(state);
+      await this.saveViewports(emptyViewports());
       await this.ctx.storage.setAlarm(body.expiresAt);
       return new Response(null, { status: 204 });
     }
@@ -542,7 +617,16 @@ export class MatchRoom extends Server {
     seat.disconnectUntil = null;
   }
 
-  private applyDisconnectTimeouts(state: MatchState) {
+  private lockWithUncommittedPin(
+    seat: SeatState,
+    pin: { x: number; z: number } | null | undefined,
+  ) {
+    if (seat.locked) return;
+    seat.locked = true;
+    seat.guess = pin ? { x: pin.x, z: pin.z } : null;
+  }
+
+  private applyDisconnectTimeouts(state: MatchState, views: ViewportState) {
     const now = Date.now();
     const seats: { seat: SeatState; role: MatchSeatRole }[] = [
       { seat: state.playerA, role: "player_a" },
@@ -555,8 +639,10 @@ export class MatchRoom extends Server {
         seat.disconnectUntil <= now &&
         !this.roleConnected(role)
       ) {
-        seat.locked = true;
-        seat.guess = null;
+        this.lockWithUncommittedPin(
+          seat,
+          role === "player_a" ? views.viewA?.pin : views.viewB?.pin,
+        );
         seat.disconnectUntil = null;
       }
     }
@@ -631,6 +717,7 @@ export class MatchRoom extends Server {
     state.playerB.guess = null;
     state.playerB.locked = false;
     state.playerB.disconnectUntil = null;
+    await this.saveViewports(emptyViewports());
     const endsAt = Date.now() + MATCH_ROUND_MS;
     state.originalEndsAt = endsAt;
     state.roundEndsAt = endsAt;
@@ -781,7 +868,66 @@ export class MatchRoom extends Server {
     return endsAt;
   }
 
-  private snapshotFor(state: MatchState, role: MatchSeatRole) {
+  private async applyMapMoved(
+    role: "player_a" | "player_b",
+    inbound: {
+      x: number;
+      z: number;
+      zoom?: number;
+      pin?: { x: number; z: number } | null;
+    },
+  ) {
+    const views = await this.loadViewports();
+    const previous = role === "player_a" ? views.viewA : views.viewB;
+    const point = clampToMainField({ x: inbound.x, z: inbound.z });
+    const inboundPin = inbound.pin
+      ? clampToMainField({ x: inbound.pin.x, z: inbound.pin.z })
+      : null;
+    const view: MatchViewport = {
+      x: point.x,
+      z: point.z,
+      zoom: inbound.zoom,
+      pin: inboundPin ?? previous?.pin ?? null,
+    };
+    const now = Date.now();
+    const lastSent =
+      role === "player_a" ? views.viewASentAt : views.viewBSentAt;
+    const pinChanged = !samePin(previous?.pin, view.pin);
+    const due = pinChanged || now - lastSent >= MATCH_MAP_MOVED_MIN_MS;
+    if (role === "player_a") views.viewA = view;
+    else views.viewB = view;
+    if (due) {
+      if (role === "player_a") views.viewASentAt = now;
+      else views.viewBSentAt = now;
+    }
+    await this.saveViewports(views);
+    if (!due) return;
+    const state = await this.loadState();
+    if (state) await this.broadcastWatchers(state, views);
+  }
+
+  private async stampViewportPin(
+    role: "player_a" | "player_b",
+    point: { x: number; z: number },
+  ) {
+    const views = await this.loadViewports();
+    const previous = role === "player_a" ? views.viewA : views.viewB;
+    const view: MatchViewport = {
+      x: previous?.x ?? point.x,
+      z: previous?.z ?? point.z,
+      zoom: previous?.zoom,
+      pin: point,
+    };
+    if (role === "player_a") views.viewA = view;
+    else views.viewB = view;
+    await this.saveViewports(views);
+  }
+
+  private snapshotFor(
+    state: MatchState,
+    role: MatchJoinRole,
+    views: ViewportState = emptyViewports(),
+  ) {
     const still = state.stills[state.roundIndex - 1];
     const viewSeat =
       role === "player_a"
@@ -851,23 +997,64 @@ export class MatchRoom extends Server {
       opponentLocked,
       reveal: state.reveal,
       winnerUserId: state.winnerUserId,
+      ...(joinRoleSeesViewports(role)
+        ? { viewA: views.viewA ?? null, viewB: views.viewB ?? null }
+        : {}),
     });
   }
 
+  private async sendSnapshot(
+    connection: Connection,
+    state: MatchState,
+    role: MatchJoinRole,
+    views?: ViewportState,
+  ) {
+    connection.send(
+      this.snapshotFor(state, role, views ?? (await this.loadViewports())),
+    );
+  }
+
   private async broadcastSnapshots(state: MatchState) {
+    const views = await this.loadViewports();
     for (const connection of this.getConnections<ConnState>()) {
       const role = connection.state?.role;
       const userId = connection.state?.userId;
       if (!role || !userId) continue;
-      connection.send(this.snapshotFor(state, role));
+      connection.send(this.snapshotFor(state, role, views));
+    }
+  }
+
+  private async broadcastWatchers(state: MatchState, views: ViewportState) {
+    for (const connection of this.getConnections<ConnState>()) {
+      const role = connection.state?.role;
+      if (!role || !joinRoleSeesViewports(role)) continue;
+      connection.send(this.snapshotFor(state, role, views));
     }
   }
 
   private async loadState(): Promise<MatchState | null> {
-    return (await this.ctx.storage.get<MatchState>(STATE_KEY)) ?? null;
+    const raw = await this.ctx.storage.get<Partial<MatchState>>(STATE_KEY);
+    if (!raw || !raw.phase || !raw.hostUserId || !raw.playerA || !raw.playerB) {
+      return null;
+    }
+    return {
+      ...raw,
+      mode: raw.mode ?? "private",
+    } as MatchState;
   }
 
   private async saveState(state: MatchState) {
     await this.ctx.storage.put(STATE_KEY, state);
+  }
+
+  private async loadViewports(): Promise<ViewportState> {
+    return (
+      (await this.ctx.storage.get<ViewportState>(VIEWPORTS_KEY)) ??
+      emptyViewports()
+    );
+  }
+
+  private async saveViewports(views: ViewportState) {
+    await this.ctx.storage.put(VIEWPORTS_KEY, views);
   }
 }

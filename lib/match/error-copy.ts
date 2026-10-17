@@ -30,6 +30,8 @@ export function matchErrorMessage(code: string): string {
       return "You are not in that match.";
     case "match-over":
       return "That match is over.";
+    case "ranked":
+      return "Spectators are not allowed in ranked matches.";
     case "forbidden":
       return "This tab is no longer the active session.";
     default:

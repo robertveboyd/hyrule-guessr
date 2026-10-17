@@ -1,5 +1,11 @@
 export const LOBBY_EXPIRY_LABEL = "Expires";
 
+export function matchInviteOverlayCopy(kind: "player" | "spectator"): string {
+  return kind === "spectator"
+    ? "Invited you to watch a match."
+    : "Invited you to a match.";
+}
+
 export function roundVerdict(input: {
   you: "a" | "b" | "observer";
   loser: "a" | "b" | null;

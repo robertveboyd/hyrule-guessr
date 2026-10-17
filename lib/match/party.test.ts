@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   MATCH_ROOM_CLOSE_REPLACED,
+  MATCH_ROOM_CLOSE_SPECTATORS_FULL,
   MATCH_ROOM_CLOSE_UNAUTHORIZED,
   shouldReconnectMatchRoom,
 } from "./party";
@@ -23,6 +24,9 @@ describe("shouldReconnectMatchRoom", () => {
     ).toBe(false);
     expect(
       shouldReconnectMatchRoom(MATCH_ROOM_CLOSE_REPLACED, "playing"),
+    ).toBe(false);
+    expect(
+      shouldReconnectMatchRoom(MATCH_ROOM_CLOSE_SPECTATORS_FULL, "playing"),
     ).toBe(false);
   });
 });

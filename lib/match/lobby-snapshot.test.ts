@@ -19,6 +19,7 @@ const lobby: MatchLobbyDto = {
     {
       userId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
       username: "guest",
+      kind: "player",
       status: "pending",
     },
   ],
@@ -218,6 +219,7 @@ describe("applyMatchSnapshotToLobby", () => {
         {
           userId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
           username: "guest",
+          kind: "player",
           status: "accepted",
         },
       ],
@@ -260,6 +262,7 @@ describe("applyMatchSnapshotToLobby", () => {
         {
           userId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
           username: "guest",
+          kind: "player",
           status: "accepted",
         },
       ],
@@ -282,5 +285,21 @@ describe("applyMatchSnapshotToLobby", () => {
     );
     expect(next.invites[0]?.status).toBe("accepted");
     expect(next.canStart).toBe(false);
+  });
+
+  it("keeps accepted spectators when player seats change", () => {
+    const watching: MatchLobbyDto = {
+      ...lobby,
+      invites: [
+        {
+          userId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+          username: "watcher",
+          kind: "spectator",
+          status: "accepted",
+        },
+      ],
+    };
+    const next = applyMatchSnapshotToLobby(watching, snapshot());
+    expect(next.invites[0]?.status).toBe("accepted");
   });
 });

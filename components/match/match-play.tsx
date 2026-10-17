@@ -4,11 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 
 import { DuelCombatBar } from "@/components/match/duel-combat-bar";
+import { InviteMenu } from "@/components/match/match-lobby";
 import { MatchMenu } from "@/components/match/match-menu";
+import { MatchWatch } from "@/components/match/match-watch";
 import { useFineHover } from "@/components/map/use-fine-hover";
 import { StillFrame } from "@/components/practice/still-frame";
 import { RoundTimer, useRemainingMs } from "@/components/practice/round-timer";
 import { Button } from "@/components/ui/button";
+import type { MapViewChange } from "@/components/map/botw-leaflet";
 import type { GamePoint } from "@/lib/game/crs";
 import {
   matchEndingAfterReveal,
@@ -17,7 +20,8 @@ import {
   roundVerdict,
   seatReconnecting,
 } from "@/lib/match/copy";
-import type { MatchSnapshot } from "@/lib/match/protocol";
+import type { MatchSnapshot, MatchViewport } from "@/lib/match/protocol";
+import type { MatchLobbyDto } from "@/lib/match/types";
 import { mapEnlargeHint } from "@/lib/practice/copy";
 import { cn } from "@/lib/utils";
 
@@ -51,14 +55,24 @@ export function MatchPlay({
   snapshot,
   userId,
   unavailable,
+  friends,
+  pending,
+  isHost,
   onLockIn,
+  onMapMoved,
+  onInviteWatch,
   onHome,
   onRetry,
 }: {
   snapshot: MatchSnapshot;
   userId: string;
   unavailable: boolean;
+  friends: MatchLobbyDto["friends"];
+  pending: boolean;
+  isHost: boolean;
   onLockIn: (point: GamePoint) => void;
+  onMapMoved: (view: MatchViewport) => void;
+  onInviteWatch: (friendId: string) => void;
   onHome: () => void;
   onRetry?: () => void;
 }) {
@@ -126,6 +140,14 @@ export function MatchPlay({
     if (!pin || snapshot.youLocked) return;
     onLockIn(pin);
   }, [onLockIn, pin, snapshot.youLocked]);
+
+  const sendView = useCallback(
+    (view: MapViewChange) => {
+      if (observer || snapshot.youLocked) return;
+      onMapMoved(view);
+    },
+    [observer, onMapMoved, snapshot.youLocked],
+  );
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -221,6 +243,25 @@ export function MatchPlay({
     );
   }
 
+  if (observer) {
+    return (
+      <MatchWatch
+        snapshot={snapshot}
+        unavailable={unavailable}
+        friends={friends}
+        pending={pending}
+        isHost={isHost}
+        onHome={onHome}
+        onRetry={onRetry}
+        onInviteWatch={onInviteWatch}
+      />
+    );
+  }
+
+  const watchInviteable = friends.filter(
+    (friend) => friend.online && !friend.busy,
+  );
+
   return (
     <div className="relative h-svh overflow-hidden bg-black">
       {snapshot.imageUrl ? (
@@ -247,6 +288,18 @@ export function MatchPlay({
       ) : null}
 
       <MatchMenu onHome={onHome} />
+
+      {isHost && watchInviteable.length > 0 ? (
+        <div className="absolute top-3 left-14 z-30 w-40">
+          <InviteMenu
+            friends={watchInviteable}
+            pending={pending}
+            tone="p1"
+            label="Invite to watch"
+            onInvite={onInviteWatch}
+          />
+        </div>
+      ) : null}
 
       {snapshot.phase === "betweenRounds" && verdict ? (
         <div className="pointer-events-none absolute top-3 left-1/2 z-30 w-max max-w-[calc(100%-7rem)] -translate-x-1/2 rounded-md border border-amber/40 bg-hud px-4 py-2 text-center">
@@ -302,6 +355,7 @@ export function MatchPlay({
           expanded && "h-[min(38rem,calc(100%-8rem))] w-[min(52rem,72vw)]",
         )}
         onGuess={placePin}
+        onViewChange={sendView}
         onPointerEnter={
           fineHover && guessing
             ? () => setMapUi((current) => ({ ...current, hovered: true }))

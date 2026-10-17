@@ -18,6 +18,7 @@ import {
   mainFieldLatLngBounds,
   type GamePoint,
 } from "@/lib/game/crs";
+import { MATCH_MAP_MOVED_MIN_MS } from "@/lib/game/match";
 import { mapBaseImageUrl, mapTilesUrl } from "@/lib/game/tiles";
 import { cn } from "@/lib/utils";
 
@@ -124,6 +125,25 @@ function fitPins(map: L.Map, points: Array<GamePoint | null | undefined>) {
   });
 }
 
+function applyFollow(
+  map: L.Map,
+  follow: GamePoint & { zoom?: number },
+  pin: GamePoint | null,
+) {
+  const zoom = follow.zoom ?? map.getZoom();
+  map.setView(toLatLng(follow), zoom, { animate: false });
+  if (!pin) return;
+  const latlng = toLatLng(pin);
+  const visible = map.getBounds().pad(-0.12);
+  if (visible.contains(latlng)) return;
+  map.panInside(latlng, { padding: [36, 36], animate: false });
+}
+
+export type MapViewChange = GamePoint & {
+  zoom: number;
+  pin: GamePoint | null;
+};
+
 export type BotwLeafletProps = {
   className?: string;
   interactive?: boolean;
@@ -131,7 +151,9 @@ export type BotwLeafletProps = {
   truth?: GamePoint | null;
   opponent?: GamePoint | null;
   onGuess?: (point: GamePoint) => void;
-  guessKind?: "preview" | "guess";
+  onViewChange?: (view: MapViewChange) => void;
+  follow?: (GamePoint & { zoom?: number }) | null;
+  guessKind?: PinKind;
   showLine?: boolean;
   showZoom?: boolean;
   visible?: boolean;
@@ -144,6 +166,8 @@ export function BotwLeaflet({
   truth = null,
   opponent = null,
   onGuess,
+  onViewChange,
+  follow = null,
   guessKind = "guess",
   showLine = false,
   showZoom = true,
@@ -158,13 +182,19 @@ export function BotwLeaflet({
   const opponentLineRef = useRef<L.Polyline | null>(null);
   const interactiveRef = useRef(interactive);
   const onGuessRef = useRef(onGuess);
+  const onViewChangeRef = useRef(onViewChange);
+  const guessRef = useRef(guess);
+  const followRef = useRef(follow);
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
   const [mapReady, setMapReady] = useState(false);
 
   useEffect(() => {
     interactiveRef.current = interactive;
     onGuessRef.current = onGuess;
-  }, [interactive, onGuess]);
+    onViewChangeRef.current = onViewChange;
+    guessRef.current = guess;
+    followRef.current = follow;
+  }, [interactive, onGuess, onViewChange, guess, follow]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -229,6 +259,7 @@ export function BotwLeaflet({
     };
     map.on("click", onClick);
     const onZoomAnim = (event: L.ZoomAnimEvent) => {
+      if (followRef.current) return;
       requestAnimationFrame(() => {
         const current = mapRef.current;
         if (!current) return;
@@ -243,8 +274,29 @@ export function BotwLeaflet({
         }
       });
     };
+    let lastEmitAt = 0;
+    const emitView = (force: boolean) => {
+      const current = mapRef.current;
+      if (!current || !onViewChangeRef.current || followRef.current) return;
+      const now = Date.now();
+      if (!force && now - lastEmitAt < MATCH_MAP_MOVED_MIN_MS) return;
+      lastEmitAt = now;
+      const center = latLngToGame(current.getCenter());
+      onViewChangeRef.current({
+        x: center.x,
+        z: center.z,
+        zoom: current.getZoom(),
+        pin: guessRef.current,
+      });
+    };
     map.on("zoomanim", onZoomAnim);
-    map.on("zoomend", () => setZoom(map.getZoom()));
+    map.on("move", () => emitView(false));
+    map.on("zoom", () => emitView(false));
+    map.on("zoomend", () => {
+      setZoom(map.getZoom());
+      emitView(true);
+    });
+    map.on("moveend", () => emitView(true));
     const onResize = () => map.invalidateSize();
     window.addEventListener("resize", onResize);
     mapRef.current = map;
@@ -255,6 +307,10 @@ export function BotwLeaflet({
       window.removeEventListener("resize", onResize);
       map.off("click", onClick);
       map.off("zoomanim", onZoomAnim);
+      map.off("move");
+      map.off("zoom");
+      map.off("zoomend");
+      map.off("moveend");
       map.remove();
       mapRef.current = null;
       guessPinRef.current = null;
@@ -308,11 +364,11 @@ export function BotwLeaflet({
       syncLine(map, opponentLineRef, null, null, OPPONENT_LINE);
     }
 
-    if (!guess && !truth && !opponent) {
+    if (!guess && !truth && !opponent && !follow) {
       const origin = gameToLatLng({ x: 0, z: 0 });
       map.setView([origin.lat, origin.lng], DEFAULT_ZOOM);
     }
-  }, [guess, truth, opponent, guessKind, showLine, mapReady]);
+  }, [follow, guess, truth, opponent, guessKind, showLine, mapReady]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -337,6 +393,24 @@ export function BotwLeaflet({
       fitPins(map, [guess, opponent, truth]);
     }
   }, [guess, mapReady, opponent, showLine, truth, visible]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady || !follow || showLine) return;
+    applyFollow(map, follow, guess);
+  }, [follow, guess, mapReady, showLine]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady || !onViewChangeRef.current) return;
+    const center = latLngToGame(map.getCenter());
+    onViewChangeRef.current({
+      x: center.x,
+      z: center.z,
+      zoom: map.getZoom(),
+      pin: guess,
+    });
+  }, [guess, mapReady]);
 
   return (
     <div className={cn("relative h-full w-full min-h-0 bg-black", className)}>

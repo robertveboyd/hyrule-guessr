@@ -12,7 +12,15 @@ import {
 } from "@/lib/match/party";
 import { parseMatchSnapshot, type MatchSnapshot } from "@/lib/match/protocol";
 
-export type MatchRoomSend = (type: "lockIn", point: { x: number; z: number }) => void;
+export type MatchRoomSend = (
+  type: "lockIn" | "mapMoved",
+  payload: {
+    x: number;
+    z: number;
+    zoom?: number;
+    pin?: { x: number; z: number } | null;
+  },
+) => void;
 
 export async function connectMatchRoom({
   matchId,
@@ -91,8 +99,17 @@ export async function connectMatchRoom({
       socket.removeEventListener("close", handleClose);
       socket.close();
     },
-    send: (type, point) => {
-      socket.send(JSON.stringify({ type, x: point.x, z: point.z }));
+    send: (type, payload) => {
+      socket.send(
+        JSON.stringify({
+          type,
+          x: payload.x,
+          z: payload.z,
+          ...(type === "mapMoved"
+            ? { zoom: payload.zoom, pin: payload.pin ?? null }
+            : {}),
+        }),
+      );
     },
   };
 }

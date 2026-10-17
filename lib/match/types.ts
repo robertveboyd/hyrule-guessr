@@ -16,11 +16,13 @@ export type MatchErrorCode =
   | "players-not-connected"
   | "catalog-too-small"
   | "not-seated"
-  | "match-over";
+  | "match-over"
+  | "ranked";
 
 export type MatchHomeInviteDto = {
   matchId: string;
   hostUsername: string;
+  kind: "player" | "spectator";
 };
 
 export type MatchHomeRejoinDto = {
@@ -42,6 +44,7 @@ export type MatchLobbySeatDto = {
 export type MatchLobbyInviteDto = {
   userId: string;
   username: string;
+  kind: "player" | "spectator";
   status: "pending" | "accepted" | "declined";
 };
 
@@ -50,7 +53,13 @@ export type MatchLobbyDto = {
   status: "lobby" | "live" | "cancelled" | "completed";
   hostUserId: string;
   hostRole: "player" | "observer";
-  youRole: "player_a" | "player_b" | "host_observer" | "invitee" | "none";
+  youRole:
+    | "player_a"
+    | "player_b"
+    | "host_observer"
+    | "spectator"
+    | "invitee"
+    | "none";
   lobbyExpiresAt: string;
   seats: MatchLobbySeatDto[];
   invites: MatchLobbyInviteDto[];

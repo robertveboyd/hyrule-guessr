@@ -1,6 +1,6 @@
 import { z, type ZodType } from "zod";
 
-import { MATCH_SEAT_ROLES, type MatchSeatRole } from "../lib/game/match";
+import { MATCH_JOIN_ROLES, type MatchJoinRole } from "../lib/game/match";
 import { secretsEqual } from "./join-token";
 
 const encoder = new TextEncoder();
@@ -14,7 +14,7 @@ const headerSchema = z.object({
 const claimsSchema = z.object({
   userId: z.string(),
   matchId: z.string(),
-  role: z.enum(MATCH_SEAT_ROLES),
+  role: z.enum(MATCH_JOIN_ROLES),
   exp: z.number(),
 });
 
@@ -74,7 +74,7 @@ export async function mintMatchJoinToken(
   secret: string,
   userId: string,
   matchId: string,
-  role: MatchSeatRole,
+  role: MatchJoinRole,
   now = Date.now(),
 ): Promise<string> {
   const header = bytesToBase64Url(
