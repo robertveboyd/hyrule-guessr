@@ -50,6 +50,9 @@ yarn-error.log*
 /public/catalog/
 /scripts/add-stills/stills.json
 
+# Figma raw assets
+/figma/
+
 # vercel
 .vercel
 

@@ -122,28 +122,92 @@
 .leaflet-marker-icon.botw-map-pin {
   background: transparent;
   border: none;
-  transform-origin: 50% 50%;
+  overflow: visible;
 }
 
-.botw-map-pin-dot {
+.leaflet-marker-icon.botw-map-pin-stamp {
+  transform-origin: 21px 120px;
+}
+
+.leaflet-marker-icon.botw-map-pin-quest {
+  transform-origin: 24px 24px;
+}
+
+.botw-map-pin-art {
   display: block;
-  width: 12px;
-  height: 12px;
-  box-sizing: border-box;
-  background: #e0a01a;
-  border: 2px solid #1a1208;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.botw-map-pin-pulse {
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  bottom: 6%;
+  height: 18%;
+  border-radius: 22%;
+  pointer-events: none;
+  animation: botw-beacon-ring 2.2s ease-out infinite;
+}
+
+.botw-map-pin-pulse-late {
+  animation-delay: 1.1s;
+}
+
+.botw-map-pin-stamp-red .botw-map-pin-pulse {
+  border: 2px solid rgb(255 137 100 / 0.85);
+}
+
+.botw-map-pin-stamp-blue .botw-map-pin-pulse {
+  border: 2px solid rgb(157 170 254 / 0.85);
+}
+
+.botw-map-pin-stamp-red .botw-map-pin-art {
+  animation: botw-beacon-breathe 2.2s ease-in-out infinite;
+}
+
+.botw-map-pin-stamp-blue .botw-map-pin-art {
+  animation: botw-beacon-breathe 2.2s ease-in-out infinite;
+}
+
+.botw-map-pin-quest .botw-map-pin-pulse {
+  left: 25%;
+  right: 25%;
+  top: 25%;
+  bottom: 25%;
+  height: auto;
   border-radius: 50%;
+  border: 2px dashed rgb(255 243 129 / 0.9);
 }
 
-.botw-map-pin-dot-guess {
-  background: #3ec8e0;
+@keyframes botw-beacon-ring {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.7;
+  }
+  70%,
+  100% {
+    transform: scale(2.15);
+    opacity: 0;
+  }
 }
 
-.botw-map-pin-dot-opponent {
-  background: #e0a01a;
+@keyframes botw-beacon-breathe {
+  0%,
+  100% {
+    opacity: 0.88;
+  }
+  45% {
+    opacity: 1;
+  }
 }
 
-.botw-map-pin-dot-truth {
-  background: #e8eef5;
-  border-color: #1a1208;
+@media (prefers-reduced-motion: reduce) {
+  .botw-map-pin-pulse,
+  .botw-map-pin-stamp-red .botw-map-pin-art,
+  .botw-map-pin-stamp-blue .botw-map-pin-art {
+    animation: none;
+  }
 }

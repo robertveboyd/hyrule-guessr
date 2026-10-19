@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 70 235" fill="none">
+  <g opacity="0.58">
+    <g filter="url(#blue-flare-beam)">
+      <path d="M30 90L35 20L40 90L42 188H28L30 90Z" fill="url(#blue-flare-grad)"/>
+    </g>
+  </g>
+  <g filter="url(#blue-flare-stamp)">
+    <path
+      fill="#9DAAFE"
+      fill-rule="evenodd"
+      d="M20 189.286V210.714C21.6714 212.386 22.6143 213.329 24.2857 215H45.7143C47.3857 213.329 48.3286 212.386 50 210.714V189.286C48.3286 187.614 47.3857 186.671 45.7143 185H24.2857C22.6143 186.671 21.6714 187.614 20 189.286ZM25.5 194.643V191H29.1857V194.643H25.5ZM44.6857 193.657V207.243L41.8143 210.114H28.5714L24.7143 206.771H39.5C39.8429 206.429 40.8714 205.4 41.2143 205.057V190.186L44.6857 193.657ZM36.8429 190.614V201.5L35.7714 202.571H25.0143V199.486H32.6429C32.9857 199.143 33.5857 198.543 33.9286 198.2V190.614H36.8429Z"
+    />
+  </g>
+  <defs>
+    <linearGradient id="blue-flare-grad" x1="35" y1="20" x2="35" y2="188" gradientUnits="userSpaceOnUse">
+      <stop offset="0.04" stop-color="#3048F0" stop-opacity="0"/>
+      <stop offset="0.65" stop-color="#2152FF" stop-opacity="0.6"/>
+      <stop offset="1" stop-color="#2152FF" stop-opacity="0.8"/>
+    </linearGradient>
+    <filter id="blue-flare-beam" x="18" y="10" width="34" height="188" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+      <feGaussianBlur stdDeviation="4"/>
+    </filter>
+    <filter id="blue-flare-stamp" x="5" y="170" width="60" height="60" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset/>
+      <feGaussianBlur stdDeviation="5"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.0581072 0 0 0 0 0.314068 0 0 0 0 0.972251 0 0 0 1 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="glow1"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset/>
+      <feGaussianBlur stdDeviation="7.5"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0.1242 0 0 0 0 0.926722 0 0 0 1 0"/>
+      <feBlend mode="normal" in2="glow1" result="glow2"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="glow2" result="shape"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset/>
+      <feGaussianBlur stdDeviation="1"/>
+      <feComposite in2="hardAlpha" operator="arithmetic" k2="-1" k3="1"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.713932 0 0 0 0 0.752271 0 0 0 0 1 0 0 0 1 0"/>
+      <feBlend mode="hard-light" in2="shape" result="inner"/>
+      <feGaussianBlur stdDeviation="0.5"/>
+    </filter>
+  </defs>
+</svg>

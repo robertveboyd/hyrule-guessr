@@ -14,6 +14,7 @@
     "map:upload-tiles": "tsx scripts/upload-map-tiles/index.ts",
     "catalog:add": "tsx scripts/add-still/index.ts",
     "catalog:add-stills": "tsx scripts/add-stills/index.ts",
+    "figma:fetch-kit": "tsx scripts/fetch-figma-kit/index.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",

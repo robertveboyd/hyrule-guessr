@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
+import { pinArt, pinLineColor, type PinKind } from "@/components/map/pin-icons";
 import { Button } from "@/components/ui/button";
 import {
   CRS_TRANSFORM,
@@ -33,26 +34,15 @@ function createBotwCrs(): L.CRS {
   });
 }
 
-const PIN_SIZE = 12;
-const GUESS_LINE = "#3ec8e0";
-const OPPONENT_LINE = "#e0a01a";
-
-type PinKind = "preview" | "guess" | "truth" | "opponent";
-
 function pinIcon(kind: PinKind) {
-  const extra =
-    kind === "guess"
-      ? " botw-map-pin-dot-guess"
-      : kind === "truth"
-        ? " botw-map-pin-dot-truth"
-        : kind === "opponent"
-          ? " botw-map-pin-dot-opponent"
-          : "";
+  const art = pinArt(kind);
+  const pulse =
+    '<span class="botw-map-pin-pulse"></span><span class="botw-map-pin-pulse botw-map-pin-pulse-late"></span>';
   return L.divIcon({
-    className: "botw-map-pin",
-    iconSize: [PIN_SIZE, PIN_SIZE],
-    iconAnchor: [PIN_SIZE / 2, PIN_SIZE / 2],
-    html: `<span class="botw-map-pin-dot${extra}"></span>`,
+    className: art.className,
+    iconSize: art.iconSize,
+    iconAnchor: art.iconAnchor,
+    html: `${pulse}<img src="${art.src}" alt="" draggable="false" class="botw-map-pin-art" />`,
   });
 }
 
@@ -100,16 +90,19 @@ function syncLine(
     return;
   }
   const latlngs: L.LatLngExpression[] = [toLatLng(from), toLatLng(to)];
-  if (ref.current) {
-    ref.current.setLatLngs(latlngs);
-    ref.current.setStyle({ color });
-    return;
-  }
-  ref.current = L.polyline(latlngs, {
+  const style = {
     color,
     weight: 2,
     opacity: 0.9,
-  }).addTo(map);
+    dashArray: "8 6",
+    lineCap: "butt" as const,
+  };
+  if (ref.current) {
+    ref.current.setLatLngs(latlngs);
+    ref.current.setStyle(style);
+    return;
+  }
+  ref.current = L.polyline(latlngs, style).addTo(map);
 }
 
 function fitPins(map: L.Map, points: Array<GamePoint | null | undefined>) {
@@ -356,12 +349,18 @@ export function BotwLeaflet({
     syncMarker(opponentPinRef, opponent, "opponent");
 
     if (showLine) {
-      syncLine(map, guessLineRef, guess, truth, GUESS_LINE);
-      syncLine(map, opponentLineRef, opponent, truth, OPPONENT_LINE);
+      syncLine(map, guessLineRef, guess, truth, pinLineColor("guess"));
+      syncLine(
+        map,
+        opponentLineRef,
+        opponent,
+        truth,
+        pinLineColor("opponent"),
+      );
       fitPins(map, [guess, opponent, truth]);
     } else {
-      syncLine(map, guessLineRef, null, null, GUESS_LINE);
-      syncLine(map, opponentLineRef, null, null, OPPONENT_LINE);
+      syncLine(map, guessLineRef, null, null, pinLineColor("guess"));
+      syncLine(map, opponentLineRef, null, null, pinLineColor("opponent"));
     }
 
     if (!guess && !truth && !opponent && !follow) {
